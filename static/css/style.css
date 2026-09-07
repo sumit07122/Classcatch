@@ -1,320 +1,156 @@
 /* ===================================================
-   ClassCatch Design System & Modern Styling
+   ClassCatch - Clean, Minimalist & Distraction-Free Design
    =================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-    --primary-color: #4f46e5;
-    --primary-hover: #4338ca;
-    --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    --primary-light: #eef2ff;
-    --secondary-color: #64748b;
-    --success-color: #10b981;
-    --warning-color: #f59e0b;
-    --danger-color: #ef4444;
-    --surface-bg: #f8fafc;
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --bg-page: #f8fafc;
     --card-bg: #ffffff;
-    --border-color: #e2e8f0;
-    --text-main: #0f172a;
+    --border: #e2e8f0;
+    --text: #0f172a;
     --text-muted: #64748b;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-pill: 9999px;
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-    --shadow-lg: 0 10px 25px -5px rgba(79, 70, 229, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
-    --shadow-hover: 0 15px 30px -5px rgba(79, 70, 229, 0.15);
+    --radius: 12px;
 }
 
 body {
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: var(--surface-bg);
-    color: var(--text-main);
+    background-color: var(--bg-page);
+    color: var(--text);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    letter-spacing: -0.01em;
 }
 
-/* ===================================================
-   Navigation Bar
-   =================================================== */
-.navbar-custom {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
-    transition: all 0.3s ease;
+/* Navbar */
+.navbar-clean {
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    padding: 0.85rem 0;
 }
 
 .navbar-brand {
-    font-weight: 800;
-    font-size: 1.35rem;
-    letter-spacing: -0.5px;
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--primary) !important;
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.navbar-brand i {
-    -webkit-text-fill-color: initial;
-    color: var(--primary-color);
-}
-
 .nav-link {
     font-weight: 500;
     color: #475569 !important;
-    padding: 0.5rem 0.85rem !important;
+    padding: 0.45rem 0.85rem !important;
     border-radius: 8px;
-    transition: all 0.2s ease;
+    font-size: 0.95rem;
 }
 
 .nav-link:hover, .nav-link.active {
-    color: var(--primary-color) !important;
-    background-color: var(--primary-light);
+    color: var(--primary) !important;
+    background: #eff6ff;
 }
 
-/* ===================================================
-   Cards & Elevate Effects
-   =================================================== */
-.card-modern {
+/* Cards */
+.card-clean {
     background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .card-hover:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-hover);
-    border-color: #cbd5e1;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
 }
 
-/* ===================================================
-   Custom Badges & Indicators
-   =================================================== */
+/* Badges */
 .badge-code {
-    background: #e0e7ff;
-    color: #3730a3;
-    font-weight: 700;
-    font-size: 0.8rem;
-    padding: 0.35rem 0.65rem;
-    border-radius: var(--radius-pill);
-    letter-spacing: 0.5px;
-}
-
-.badge-status-scheduled {
-    background-color: #d1fae5;
-    color: #065f46;
+    background: #eff6ff;
+    color: #1d4ed8;
     font-weight: 600;
-}
-
-.badge-status-cancelled {
-    background-color: #fee2e2;
-    color: #991b1b;
-    font-weight: 600;
-}
-
-.badge-tag-urgent {
-    background-color: #fee2e2;
-    color: #b91c1c;
-}
-
-.badge-tag-exam {
-    background-color: #ffedd5;
-    color: #c2410c;
-}
-
-.badge-tag-assignment {
-    background-color: #fef3c7;
-    color: #92400e;
-}
-
-.badge-tag-quiz {
-    background-color: #ede9fe;
-    color: #6b21a8;
-}
-
-.badge-category {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     padding: 0.3rem 0.6rem;
-    border-radius: var(--radius-pill);
-    font-weight: 600;
+    border-radius: 6px;
 }
 
-/* ===================================================
-   Hero & Headers
-   =================================================== */
-.hero-gradient {
-    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
-    color: white;
-    border-radius: var(--radius-lg);
-    padding: 3rem 2rem;
-    position: relative;
-    overflow: hidden;
-    box-shadow: var(--shadow-lg);
-}
-
-.hero-gradient::after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -20%;
-    width: 350px;
-    height: 350px;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(255, 255, 255, 0) 70%);
-    border-radius: 50%;
-}
-
-/* ===================================================
-   Buttons & Primary Accents
-   =================================================== */
-.btn-primary-gradient {
-    background: var(--primary-gradient);
+/* Buttons */
+.btn-primary-clean {
+    background: var(--primary);
     color: white !important;
     border: none;
     font-weight: 600;
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-    transition: all 0.2s ease;
-    border-radius: 10px;
+    border-radius: 8px;
+    padding: 0.5rem 1.1rem;
+    font-size: 0.95rem;
+    transition: background 0.15s ease;
 }
 
-.btn-primary-gradient:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
-    filter: brightness(1.05);
+.btn-primary-clean:hover {
+    background: var(--primary-hover);
 }
 
-.btn-outline-custom {
-    border: 1.5px solid var(--border-color);
+.btn-outline-clean {
+    border: 1px solid var(--border);
     color: #334155;
     background: white;
     font-weight: 600;
-    border-radius: 10px;
-    transition: all 0.2s ease;
+    border-radius: 8px;
+    padding: 0.5rem 1.1rem;
+    font-size: 0.95rem;
+    transition: all 0.15s ease;
 }
 
-.btn-outline-custom:hover {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-    background: var(--primary-light);
+.btn-outline-clean:hover {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
 }
 
-/* ===================================================
-   Chat Feed & Bubbles
-   =================================================== */
-.chat-container {
-    height: 480px;
-    overflow-y: auto;
-    padding: 1.25rem;
-    background: #f8fafc;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
-    scroll-behavior: smooth;
-}
-
-.chat-bubble {
-    max-width: 80%;
-    margin-bottom: 1rem;
-    padding: 0.85rem 1rem;
-    border-radius: 16px;
-    position: relative;
-    box-shadow: var(--shadow-sm);
-}
-
-.chat-bubble.mine {
-    margin-left: auto;
-    background: #4f46e5;
-    color: white;
-    border-bottom-right-radius: 4px;
-}
-
-.chat-bubble.peer {
-    margin-right: auto;
+/* Notes Feed */
+.note-item {
+    border-left: 3px solid var(--primary);
     background: #ffffff;
-    border: 1px solid var(--border-color);
-    color: var(--text-main);
-    border-bottom-left-radius: 4px;
+    border-radius: 8px;
+    padding: 1.25rem;
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
 }
 
-.chat-author {
-    font-size: 0.78rem;
-    font-weight: 700;
-    margin-bottom: 2px;
-}
-
-.chat-time {
-    font-size: 0.7rem;
-    opacity: 0.8;
-}
-
-/* ===================================================
-   Attendance Progress & Meter Cards
-   =================================================== */
-.attendance-ring-card {
-    background: white;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-color);
-    padding: 1.5rem;
-    box-shadow: var(--shadow-sm);
-}
-
-.attendance-pill-safe {
-    background-color: #ecfdf5;
-    color: #047857;
-    border: 1px solid #a7f3d0;
-}
-
-.attendance-pill-warning {
-    background-color: #fffbeb;
-    color: #b45309;
-    border: 1px solid #fde68a;
-}
-
-.attendance-pill-danger {
-    background-color: #fef2f2;
-    color: #b91c1c;
-    border: 1px solid #fecaca;
-}
-
-.progress-thin {
-    height: 8px;
-    border-radius: 4px;
-    background-color: #e2e8f0;
-}
-
-/* ===================================================
-   Summary Feed Item
-   =================================================== */
-.summary-card {
-    border-left: 4px solid var(--primary-color) !important;
-    transition: all 0.2s ease;
-}
-
-.summary-card.assignment-border {
-    border-left: 4px solid var(--warning-color) !important;
-}
-
-.summary-card.exam-border {
-    border-left: 4px solid var(--danger-color) !important;
-}
-
-.summary-content-preview {
+.note-content {
     white-space: pre-line;
     color: #334155;
     line-height: 1.65;
+    font-size: 0.95rem;
 }
 
-/* ===================================================
-   Footer & Toasts
-   =================================================== */
+/* Minimalist Chat */
+.chat-simple-box {
+    max-height: 380px;
+    overflow-y: auto;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+}
+
+.chat-simple-msg {
+    padding: 0.65rem 0.9rem;
+    border-radius: 8px;
+    background: white;
+    border: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+    font-size: 0.92rem;
+}
+
+/* Footer */
 footer {
     margin-top: auto;
-    background: white;
-    border-top: 1px solid var(--border-color);
-    padding: 1.5rem 0;
+    background: #ffffff;
+    border-top: 1px solid var(--border);
+    padding: 1.25rem 0;
+    font-size: 0.88rem;
 }

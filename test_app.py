@@ -10,34 +10,20 @@ def test_classcatch():
     res = client.get('/')
     assert res.status_code == 200, f"Expected 200 on /, got {res.status_code}"
     assert b"ClassCatch" in res.data
-    assert b"Never Miss a Beat in Class" in res.data
+    assert b"College Class Catch-up Notes" in res.data
     print("   [+] GET / -> 200 OK")
 
-    # 2. Course Details & Tabs
+    # 2. Course Details
     res = client.get('/course/1')
     assert res.status_code == 200
     assert b"CSE-301" in res.data
-    print("   [+] GET /course/1 (Summaries) -> 200 OK")
-
-    res = client.get('/course/1?tab=chat')
-    assert res.status_code == 200
-    assert b"Unofficial Peer Chat" in res.data
-    print("   [+] GET /course/1?tab=chat -> 200 OK")
-
-    res = client.get('/course/1?tab=announcements')
-    assert res.status_code == 200
-    assert b"Class Announcements" in res.data
-    print("   [+] GET /course/1?tab=announcements -> 200 OK")
-
-    res = client.get('/course/1?tab=schedule')
-    assert res.status_code == 200
-    assert b"Class Timetable & Location" in res.data
-    print("   [+] GET /course/1?tab=schedule -> 200 OK")
+    assert b"Class Doubts & Questions" in res.data
+    print("   [+] GET /course/1 -> 200 OK")
 
     # 3. Attendance Calculator
     res = client.get('/attendance')
     assert res.status_code == 200
-    assert b"Attendance & Bunk Predictor" in res.data
+    assert b"Attendance Calculator" in res.data
     print("   [+] GET /attendance -> 200 OK")
 
     # 4. Campus Lounge

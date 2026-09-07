@@ -1,423 +1,167 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- Course Header Banner -->
-<div class="card card-modern p-4 mb-4 border-0 shadow-sm bg-white">
-    <div class="row align-items-center">
-        <div class="col-lg-8">
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+<!-- Course Header -->
+<div class="card card-clean p-4 mb-4 bg-white">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
                 <span class="badge badge-code fs-6">{{ course.code }}</span>
-                <span class="badge bg-light text-dark border">Section {{ course.section }}</span>
-                <span class="badge bg-light text-dark border">Semester {{ course.semester }}</span>
-                <span class="badge {% if course.status == 'Scheduled' %}badge-status-scheduled{% else %}badge-status-cancelled{% endif %} rounded-pill px-3 py-1">
-                    <i class="bi bi-circle-fill me-1" style="font-size: 7px;"></i> {{ course.status }}
-                </span>
+                <span class="text-muted small">Section {{ course.section }} &middot; Semester {{ course.semester }}</span>
             </div>
-            <h2 class="fw-extrabold mb-1">{{ course.name }}</h2>
-            <div class="text-muted small d-flex flex-wrap gap-3 mt-2">
-                <span><i class="bi bi-person-badge text-primary me-1"></i> {{ course.instructor }}</span>
-                <span><i class="bi bi-geo-alt text-primary me-1"></i> {{ course.room }}</span>
-                <span><i class="bi bi-clock text-primary me-1"></i> {{ course.schedule }}</span>
+            <h3 class="fw-bold mb-1 text-dark">{{ course.name }}</h3>
+            <div class="text-muted small">
+                <i class="bi bi-person me-1"></i> {{ course.instructor }} &middot; 
+                <i class="bi bi-geo-alt me-1"></i> {{ course.room }} &middot; 
+                <i class="bi bi-clock me-1"></i> {{ course.schedule }}
             </div>
         </div>
-        <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-            <button class="btn btn-primary-gradient px-4 py-2" data-bs-toggle="collapse" data-bs-target="#quickPostBox" aria-expanded="false" id="btn-toggle-quick-post">
-                <i class="bi bi-plus-circle me-1"></i> Post Class Catch-up
+        <div>
+            <button class="btn btn-primary-clean" data-bs-toggle="collapse" data-bs-target="#postNoteBox">
+                <i class="bi bi-plus-lg me-1"></i> Post Note for this Class
             </button>
         </div>
     </div>
 </div>
 
-<!-- Collapsible Quick Post Form for this Course -->
-<div class="collapse mb-4 {% if request.args.get('post') %}show{% endif %}" id="quickPostBox">
-    <div class="card card-modern p-4 border-primary">
+<!-- Collapsible Post Form for this Course -->
+<div class="collapse mb-4" id="postNoteBox">
+    <div class="card card-clean p-4 bg-white border-primary">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-pencil-square me-2"></i> Post Catch-up Note for {{ course.code }}</h5>
-            <button type="button" class="btn-close" data-bs-toggle="collapse" data-bs-target="#quickPostBox"></button>
+            <h5 class="fw-bold mb-0 text-primary">Post Catch-up Note for {{ course.code }}</h5>
+            <button type="button" class="btn-close" data-bs-toggle="collapse" data-bs-target="#postNoteBox"></button>
         </div>
         {% if current_user.is_authenticated %}
             <form action="{{ url_for('post_course_summary', course_id=course.id) }}" method="POST">
                 {{ summary_form.hidden_tag() }}
                 <div class="row g-3">
                     <div class="col-md-4">
-                        {{ summary_form.date.label(class="form-label fw-semibold small") }}
+                        {{ summary_form.date.label(class="form-label small fw-semibold text-muted") }}
                         {{ summary_form.date(class="form-control rounded-3") }}
                     </div>
-                    <div class="col-md-4">
-                        {{ summary_form.category.label(class="form-label fw-semibold small") }}
-                        {{ summary_form.category(class="form-select rounded-3") }}
-                    </div>
-                    <div class="col-md-4">
-                        {{ summary_form.topic.label(class="form-label fw-semibold small") }}
-                        {{ summary_form.topic(class="form-control rounded-3", placeholder="e.g. Normalization & BCNF") }}
+                    <div class="col-md-8">
+                        {{ summary_form.topic.label(class="form-label small fw-semibold text-muted") }}
+                        {{ summary_form.topic(class="form-control rounded-3", placeholder="e.g. Chapter 4: Deadlocks & Banker's Algorithm") }}
                     </div>
                     <div class="col-12">
-                        {{ summary_form.content.label(class="form-label fw-semibold small") }}
-                        {{ summary_form.content(class="form-control rounded-3", rows=4, placeholder="Summarize what was discussed in class, assignments assigned, homework deadlines, or professor announcements...") }}
+                        {{ summary_form.content.label(class="form-label small fw-semibold text-muted") }}
+                        {{ summary_form.content(class="form-control rounded-3", rows=4, placeholder="What was covered in class? Any assignments given or announcements made?") }}
                     </div>
                     <div class="col-12 text-end">
-                        <button type="button" class="btn btn-light me-2" data-bs-toggle="collapse" data-bs-target="#quickPostBox">Cancel</button>
-                        {{ summary_form.submit(class="btn btn-primary-gradient px-4") }}
+                        <button type="button" class="btn btn-light me-2" data-bs-toggle="collapse" data-bs-target="#postNoteBox">Cancel</button>
+                        <button type="submit" class="btn btn-primary-clean">Publish Note</button>
                     </div>
                 </div>
             </form>
         {% else %}
-            <div class="text-center py-4">
-                <p class="text-muted mb-2">You need to sign in to share a class catch-up note with your classmates.</p>
-                <a href="{{ url_for('login', next=request.url) }}" class="btn btn-primary-gradient btn-sm px-4">Sign In to Post</a>
+            <div class="text-center py-3">
+                <p class="text-muted mb-2">Please log in to share notes with your classmates.</p>
+                <a href="{{ url_for('login', next=request.url) }}" class="btn btn-primary-clean btn-sm">Log In</a>
             </div>
         {% endif %}
     </div>
 </div>
 
-<!-- Navigation Tabs -->
-<ul class="nav nav-pills mb-4 gap-2 bg-white p-2 rounded-4 border shadow-sm" id="courseTabs" role="tablist">
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'summaries' %}active{% endif %}" href="{{ url_for('course_detail', course_id=course.id, tab='summaries') }}" id="tab-summaries">
-            <i class="bi bi-file-earmark-text me-1"></i> Class Catch-ups <span class="badge bg-secondary ms-1">{{ summaries|length }}</span>
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'chat' %}active{% endif %}" href="{{ url_for('course_detail', course_id=course.id, tab='chat') }}" id="tab-chat">
-            <i class="bi bi-chat-dots me-1"></i> Unofficial Class Chat <span class="badge bg-secondary ms-1">{{ chats|length }}</span>
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'announcements' %}active{% endif %}" href="{{ url_for('course_detail', course_id=course.id, tab='announcements') }}" id="tab-announcements">
-            <i class="bi bi-bell me-1"></i> Announcements <span class="badge bg-secondary ms-1">{{ announcements|length }}</span>
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'schedule' %}active{% endif %}" href="{{ url_for('course_detail', course_id=course.id, tab='schedule') }}" id="tab-schedule">
-            <i class="bi bi-calendar3 me-1"></i> Schedule & Availability
-        </a>
-    </li>
-</ul>
+<!-- Date Filter -->
+<div class="card card-clean p-3 mb-4 bg-white">
+    <form method="GET" action="{{ url_for('course_detail', course_id=course.id) }}" class="d-flex flex-wrap align-items-center gap-2">
+        <label for="date-input" class="small fw-bold text-muted me-1">
+            <i class="bi bi-funnel me-1"></i> Filter by Date:
+        </label>
+        <input type="date" id="date-input" name="date" class="form-control form-control-sm" style="max-width: 180px;" value="{{ date_filter or '' }}">
+        <button type="submit" class="btn btn-sm btn-primary-clean">Filter</button>
+        {% if date_filter %}
+            <a href="{{ url_for('course_detail', course_id=course.id) }}" class="btn btn-sm btn-outline-clean">Clear Filter</a>
+            <span class="small text-muted ms-2">Showing notes for <strong>{{ date_filter }}</strong></span>
+        {% endif %}
+        <span class="ms-auto text-muted small">{{ summaries|length }} notes found</span>
+    </form>
+</div>
 
-<!-- ========================================== -->
-<!-- TAB 1: SUMMARIES (DATE FILTER & FEED)      -->
-<!-- ========================================== -->
-{% if active_tab == 'summaries' %}
-    <!-- Date Filter Bar -->
-    <div class="card card-modern p-3 mb-4 bg-white">
-        <form method="GET" action="{{ url_for('course_detail', course_id=course.id) }}" class="row g-2 align-items-center">
-            <input type="hidden" name="tab" value="summaries">
-            <div class="col-auto">
-                <label for="date-filter-input" class="col-form-label fw-bold small text-muted">
-                    <i class="bi bi-funnel me-1"></i> Filter by Class Date:
-                </label>
-            </div>
-            <div class="col-auto">
-                <input type="date" id="date-filter-input" name="date" class="form-control form-control-sm rounded-3" value="{{ date_filter or '' }}">
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-sm btn-primary-gradient px-3" id="btn-filter-date">Apply</button>
-                {% if date_filter %}
-                    <a href="{{ url_for('course_detail', course_id=course.id, tab='summaries') }}" class="btn btn-sm btn-light border">Clear Filter</a>
-                {% endif %}
-            </div>
-            {% if date_filter %}
-                <div class="col-auto ms-auto small text-muted">
-                    Showing results for <strong>{{ date_filter }}</strong>
-                </div>
-            {% endif %}
-        </form>
-    </div>
-
-    <!-- Summaries Feed -->
-    <div class="row g-4">
-        {% for s in summaries %}
-            <div class="col-12">
-                <div class="card card-modern p-4 summary-card {% if s.category == 'Assignment' %}assignment-border{% elif s.category == 'Exam Prep' %}exam-border{% endif %}">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-primary rounded-pill px-3 py-1">
-                                <i class="bi bi-calendar-check me-1"></i> {{ s.date.strftime('%A, %B %d, %Y') }}
-                            </span>
-                            <span class="badge bg-light text-dark border">{{ s.category }}</span>
-                        </div>
-                        <div class="text-muted small">
-                            Posted {{ s.created_at.strftime('%b %d at %I:%M %p') }}
-                        </div>
-                    </div>
-
-                    <h4 class="fw-bold text-dark mb-2">
-                        <a href="{{ url_for('summary_detail', summary_id=s.id) }}" class="text-decoration-none text-dark">
-                            {{ s.topic or 'Class Highlights & Notes' }}
-                        </a>
-                    </h4>
-
-                    <div class="summary-content-preview mb-3">
-                        {{ s.content }}
-                    </div>
-
-                    <div class="pt-3 border-top d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-2 small text-muted">
-                            <span class="badge rounded-circle bg-secondary text-white p-2" style="width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;">
-                                {{ s.author.name[0]|upper }}
-                            </span>
-                            <span>Posted by <strong>{{ s.author.name }}</strong> ({{ s.author.role }})</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <form action="{{ url_for('mark_helpful', summary_id=s.id) }}" method="POST" class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-outline-success rounded-pill px-3">
-                                    <i class="bi bi-hand-thumbs-up me-1"></i> Helpful ({{ s.helpful_count }})
-                                </button>
-                            </form>
-                            <a href="{{ url_for('summary_detail', summary_id=s.id) }}" class="btn btn-sm btn-light border rounded-pill px-3">
-                                Full View
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        {% else %}
-            <div class="col-12 text-center py-5 card card-modern bg-white">
-                <i class="bi bi-journal-x fs-1 text-muted opacity-50 mb-2"></i>
-                <h5 class="fw-bold">No catch-up summaries found{% if date_filter %} for {{ date_filter }}{% endif %}</h5>
-                <p class="text-muted small mb-3">Did you attend this lecture? Share your notes and assignments to help classmates catch up!</p>
-                <button class="btn btn-primary-gradient btn-sm px-4" data-bs-toggle="collapse" data-bs-target="#quickPostBox">
-                    + Post First Summary
-                </button>
-            </div>
-        {% endfor %}
-    </div>
-
-<!-- ========================================== -->
-<!-- TAB 2: UNOFFICIAL CLASS CHAT               -->
-<!-- ========================================== -->
-{% elif active_tab == 'chat' %}
-    <div class="row g-4">
-        <div class="col-lg-8">
-            <div class="card card-modern p-3">
-                <div class="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
-                    <div>
-                        <h5 class="fw-bold mb-0"><i class="bi bi-chat-square-dots text-primary me-2"></i> {{ course.code }} Unofficial Peer Chat</h5>
-                        <div class="text-muted small">Ask doubts, request lab manuals, and organize study groups.</div>
-                    </div>
-                    <span class="badge bg-light text-dark border">{{ chats|length }} messages</span>
-                </div>
-
-                <!-- Chat Feed Box -->
-                <div class="chat-container mb-3" id="courseChatFeed">
-                    {% for msg in chats %}
-                        <div class="chat-bubble {% if current_user.is_authenticated and msg.user_id == current_user.id %}mine{% else %}peer{% endif %}">
-                            <div class="d-flex justify-content-between align-items-center mb-1 gap-3">
-                                <span class="chat-author">
-                                    {% if current_user.is_authenticated and msg.user_id == current_user.id %}You{% else %}{{ msg.author.name }}{% endif %}
-                                </span>
-                                <span class="badge bg-light text-dark border small" style="font-size: 0.65rem;">{{ msg.category }}</span>
-                            </div>
-                            <div class="message-text mb-1" style="white-space: pre-wrap; font-size: 0.9rem;">{{ msg.message }}</div>
-                            <div class="text-end chat-time">{{ msg.created_at.strftime('%b %d, %I:%M %p') }}</div>
-                        </div>
-                    {% else %}
-                        <div class="text-center py-5 text-muted">
-                            <i class="bi bi-chat-left-text fs-2 text-muted opacity-50 mb-2 d-block"></i>
-                            No messages in this class chat yet. Start the conversation!
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <!-- Message Send Box -->
-                {% if current_user.is_authenticated %}
-                    <form action="{{ url_for('post_course_chat', course_id=course.id) }}" method="POST">
-                        {{ chat_form.hidden_tag() }}
-                        <div class="row g-2 align-items-center">
-                            <div class="col-md-3">
-                                {{ chat_form.category(class="form-select form-select-sm rounded-3") }}
-                            </div>
-                            <div class="col-md-7">
-                                {{ chat_form.message(class="form-control form-control-sm rounded-3", rows=1, placeholder="Type requirement, doubt or message...") }}
-                            </div>
-                            <div class="col-md-2">
-                                <button type="submit" class="btn btn-primary-gradient btn-sm w-100 rounded-3">Send</button>
-                            </div>
-                        </div>
-                    </form>
-                {% else %}
-                    <div class="alert alert-light border text-center mb-0 py-2">
-                        <span class="small text-muted me-2">Join the conversation:</span>
-                        <a href="{{ url_for('login', next=request.url) }}" class="btn btn-primary-gradient btn-sm py-1 px-3">Sign in to chat</a>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Chat Guidelines & Requirements Sidebar -->
-        <div class="col-lg-4">
-            <div class="card card-modern p-3 mb-3">
-                <h6 class="fw-bold mb-2"><i class="bi bi-info-circle text-primary me-2"></i> Class Chat Guidelines</h6>
-                <ul class="small text-muted ps-3 mb-0">
-                    <li class="mb-1">This is an unofficial peer room run by students.</li>
-                    <li class="mb-1">Tag your messages as <strong>Requirement</strong>, <strong>Doubt</strong>, or <strong>Notes Request</strong> for clarity.</li>
-                    <li class="mb-1">Be respectful and helpful to your classmates.</li>
-                    <li>Avoid spamming or non-academic solicitations.</li>
-                </ul>
-            </div>
-            <div class="card card-modern p-3 bg-light border">
-                <h6 class="fw-bold mb-2"><i class="bi bi-pin-angle text-warning me-2"></i> Quick Peer Requirements</h6>
-                <p class="small text-muted mb-2">Need something urgently for tomorrow's class?</p>
-                <div class="d-flex flex-column gap-2">
-                    <span class="badge bg-white text-dark border p-2 text-start"><i class="bi bi-file-earmark-pdf text-danger me-1"></i> Lab Manual / Experiment Code</span>
-                    <span class="badge bg-white text-dark border p-2 text-start"><i class="bi bi-people text-success me-1"></i> Mini-Project Teammate Request</span>
-                    <span class="badge bg-white text-dark border p-2 text-start"><i class="bi bi-question-diamond text-primary me-1"></i> Professor's Slide Reference</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-<!-- ========================================== -->
-<!-- TAB 3: ANNOUNCEMENTS                       -->
-<!-- ========================================== -->
-{% elif active_tab == 'announcements' %}
-    <div class="row g-4">
-        <div class="col-lg-8">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold mb-0"><i class="bi bi-megaphone-fill text-warning me-2"></i> Class Announcements</h5>
-                <button class="btn btn-outline-custom btn-sm" data-bs-toggle="collapse" data-bs-target="#announcementBox">
-                    <i class="bi bi-plus-lg me-1"></i> Post Announcement
-                </button>
+<!-- Notes Feed -->
+<div class="d-flex flex-column gap-3 mb-5">
+    {% for s in summaries %}
+        <div class="note-item">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                <span class="badge bg-light text-dark border">
+                    <i class="bi bi-calendar-event me-1"></i> {{ s.date.strftime('%A, %b %d, %Y') }}
+                </span>
+                <span class="text-muted small">Posted by <strong>{{ s.author.name }}</strong></span>
             </div>
 
-            <!-- Post Announcement Form -->
-            <div class="collapse mb-4" id="announcementBox">
-                <div class="card card-modern p-3 border-warning">
-                    <h6 class="fw-bold mb-2 text-dark">Publish New Notice for {{ course.code }}</h6>
-                    {% if current_user.is_authenticated %}
-                        <form action="{{ url_for('post_course_announcement', course_id=course.id) }}" method="POST">
-                            {{ announcement_form.hidden_tag() }}
-                            <div class="row g-2">
-                                <div class="col-md-8">
-                                    {{ announcement_form.title(class="form-control form-control-sm rounded-3", placeholder="Title (e.g. Midterm Date Changed to Friday)") }}
-                                </div>
-                                <div class="col-md-4">
-                                    {{ announcement_form.tag(class="form-select form-select-sm rounded-3") }}
-                                </div>
-                                <div class="col-12">
-                                    {{ announcement_form.content(class="form-control form-control-sm rounded-3", rows=3, placeholder="Full notice details, instructions, or deadlines...") }}
-                                </div>
-                                <div class="col-12 text-end">
-                                    <button type="submit" class="btn btn-warning text-dark fw-bold btn-sm px-4">Post Notice</button>
-                                </div>
-                            </div>
-                        </form>
-                    {% else %}
-                        <p class="small text-muted mb-0">Please <a href="{{ url_for('login', next=request.url) }}">log in</a> to publish announcements.</p>
-                    {% endif %}
-                </div>
-            </div>
+            <h5 class="fw-bold mb-2 text-dark">{{ s.topic or 'Class Highlights' }}</h5>
+            <div class="note-content mb-3">{{ s.content }}</div>
 
-            <!-- Announcements List -->
-            <div class="d-flex flex-column gap-3">
-                {% for ann in announcements %}
-                    <div class="card card-modern p-3 border-start border-4 border-warning">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <span class="badge badge-tag-{{ ann.tag|lower }} fw-bold px-2 py-1">{{ ann.tag }}</span>
-                            <span class="text-muted small">{{ ann.created_at.strftime('%b %d, %Y at %I:%M %p') }}</span>
-                        </div>
-                        <h5 class="fw-bold text-dark mb-2">{{ ann.title }}</h5>
-                        <p class="text-muted small mb-2" style="white-space: pre-wrap;">{{ ann.content }}</p>
-                        <div class="small text-muted border-top pt-2">
-                            <i class="bi bi-person me-1"></i> Published by <strong>{{ ann.author.name }}</strong>
-                        </div>
-                    </div>
-                {% else %}
-                    <div class="card card-modern p-5 text-center bg-white">
-                        <i class="bi bi-bell-slash fs-2 text-muted opacity-50 mb-2"></i>
-                        <h6 class="fw-bold">No active announcements for this class.</h6>
-                        <p class="text-muted small mb-0">Upcoming quizzes, test schedules, or room changes will appear here.</p>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <div class="col-lg-4">
-            <div class="card card-modern p-4">
-                <h6 class="fw-bold mb-3"><i class="bi bi-lightbulb text-primary me-2"></i> Announcement Types</h6>
-                <div class="d-flex flex-column gap-2 small">
-                    <div class="p-2 rounded bg-light border">
-                        <strong class="text-danger">Exam / Quiz Alert:</strong> Test schedules, syllabus scope, and formula sheet rules.
-                    </div>
-                    <div class="p-2 rounded bg-light border">
-                        <strong class="text-warning">Assignment Deadline:</strong> Due dates, submission portals (Google Classroom/Moodle), and project guidelines.
-                    </div>
-                    <div class="p-2 rounded bg-light border">
-                        <strong class="text-primary">Room / Venue Change:</strong> When lectures move to labs or auditoriums.
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-<!-- ========================================== -->
-<!-- TAB 4: SCHEDULE & AVAILABILITY             -->
-<!-- ========================================== -->
-{% elif active_tab == 'schedule' %}
-    <div class="row g-4">
-        <div class="col-lg-6">
-            <div class="card card-modern p-4 h-100">
-                <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i class="bi bi-calendar3 text-primary"></i> Class Timetable & Location
-                </h5>
-                <table class="table table-borderless align-middle mb-0">
-                    <tbody>
-                        <tr class="border-bottom">
-                            <td class="text-muted py-3" style="width: 35%;"><i class="bi bi-book me-2"></i> Course</td>
-                            <td class="fw-bold py-3">{{ course.code }} - {{ course.name }}</td>
-                        </tr>
-                        <tr class="border-bottom">
-                            <td class="text-muted py-3"><i class="bi bi-person me-2"></i> Instructor</td>
-                            <td class="fw-bold py-3">{{ course.instructor }}</td>
-                        </tr>
-                        <tr class="border-bottom">
-                            <td class="text-muted py-3"><i class="bi bi-geo-alt me-2"></i> Classroom / Lab</td>
-                            <td class="fw-bold py-3"><span class="badge bg-light text-dark border fs-6">{{ course.room }}</span></td>
-                        </tr>
-                        <tr class="border-bottom">
-                            <td class="text-muted py-3"><i class="bi bi-clock me-2"></i> Time Slot</td>
-                            <td class="fw-bold py-3">{{ course.schedule }}</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted py-3"><i class="bi bi-check2-circle me-2"></i> Today's Status</td>
-                            <td class="py-3">
-                                <span class="badge {% if course.status == 'Scheduled' %}badge-status-scheduled{% else %}badge-status-cancelled{% endif %} px-3 py-2 fs-6">
-                                    {{ course.status }}
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="col-lg-6">
-            <div class="card card-modern p-4 h-100 bg-light">
-                <h5 class="fw-bold mb-3"><i class="bi bi-shield-check text-success me-2"></i> Missing This Class?</h5>
-                <p class="text-muted small mb-3">
-                    If you cannot attend <strong>{{ course.code }}</strong> on {{ course.schedule }}, don't worry!
-                </p>
-                <ol class="small text-muted ps-3 mb-4">
-                    <li class="mb-2">Your peers who attend will post the recap on the <strong>Class Catch-ups</strong> tab.</li>
-                    <li class="mb-2">Check the <strong>Attendance & Bunk Predictor</strong> to calculate if you have safe bunks left.</li>
-                    <li>Ask questions or request notes directly in the <strong>Unofficial Class Chat</strong>.</li>
-                </ol>
-                <a href="{{ url_for('attendance_calculator') }}" class="btn btn-primary-gradient btn-sm px-4 align-self-start">
-                    Calculate Attendance for this Course
+            <div class="d-flex justify-content-between align-items-center pt-2 border-top small text-muted">
+                <form action="{{ url_for('mark_helpful', summary_id=s.id) }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-clean py-1 px-3">
+                        <i class="bi bi-hand-thumbs-up text-success me-1"></i> Helpful ({{ s.helpful_count }})
+                    </button>
+                </form>
+                <a href="{{ url_for('summary_detail', summary_id=s.id) }}" class="text-primary text-decoration-none fw-semibold">
+                    Full View &rarr;
                 </a>
             </div>
         </div>
-    </div>
-{% endif %}
+    {% else %}
+        <div class="card card-clean p-5 text-center text-muted bg-white">
+            <i class="bi bi-journal-x fs-1 opacity-50 mb-2"></i>
+            <h6 class="fw-bold">No notes found{% if date_filter %} for {{ date_filter }}{% endif %}.</h6>
+            <p class="small mb-3">Were you in class? Post a short summary to help your classmates catch up!</p>
+            <div>
+                <button class="btn btn-primary-clean btn-sm" data-bs-toggle="collapse" data-bs-target="#postNoteBox">
+                    Post Note Now
+                </button>
+            </div>
+        </div>
+    {% endfor %}
+</div>
 
+<!-- Simple Class Chat / Doubt Section (Below Notes, Clean & Simple) -->
+<div class="card card-clean p-4 bg-white">
+    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+        <div>
+            <h5 class="fw-bold mb-0"><i class="bi bi-chat-dots text-primary me-2"></i> Class Doubts & Questions</h5>
+            <div class="text-muted small">Ask a doubt or request notes from classmates.</div>
+        </div>
+        <span class="badge bg-light text-dark border">{{ chats|length }} messages</span>
+    </div>
+
+    <!-- Messages List -->
+    <div class="chat-simple-box mb-3" id="classChatBox">
+        {% for msg in chats %}
+            <div class="chat-simple-msg">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <strong class="small text-dark">{{ msg.author.name }}</strong>
+                    <span class="text-muted" style="font-size: 0.75rem;">{{ msg.created_at.strftime('%b %d, %I:%M %p') }}</span>
+                </div>
+                <div class="text-muted">{{ msg.message }}</div>
+            </div>
+        {% else %}
+            <div class="text-center py-4 text-muted small">No questions yet. Ask something below!</div>
+        {% endfor %}
+    </div>
+
+    <!-- Simple Input -->
+    {% if current_user.is_authenticated %}
+        <form action="{{ url_for('post_course_chat', course_id=course.id) }}" method="POST">
+            {{ chat_form.hidden_tag() }}
+            <div class="input-group">
+                {{ chat_form.message(class="form-control", rows=1, placeholder="Ask a question or request notes...") }}
+                <button type="submit" class="btn btn-primary-clean px-4">Send</button>
+            </div>
+        </form>
+    {% else %}
+        <div class="text-center py-2 text-muted small">
+            <a href="{{ url_for('login', next=request.url) }}" class="text-primary fw-semibold text-decoration-none">Sign in</a> to join the class conversation.
+        </div>
+    {% endif %}
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Auto-scroll chat feed to bottom
-    const chatFeed = document.getElementById('courseChatFeed');
-    if (chatFeed) {
-        chatFeed.scrollTop = chatFeed.scrollHeight;
-    }
+    const box = document.getElementById('classChatBox');
+    if (box) { box.scrollTop = box.scrollHeight; }
 </script>
 {% endblock %}
