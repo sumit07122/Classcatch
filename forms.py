@@ -1,0 +1,130 @@
+from datetime import date
+from flask_wtf import FlaskForm
+from wtforms import (
+    StringField, PasswordField, BooleanField, SubmitField,
+    TextAreaField, SelectField, DateField, IntegerField, FloatField
+)
+from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError, Optional, NumberRange
+from models import User
+
+class RegistrationForm(FlaskForm):
+    """Form for new student registration."""
+    name = StringField('Full Name', validators=[
+        DataRequired(message="Please enter your full name."),
+        Length(min=2, max=100, message="Name must be between 2 and 100 characters.")
+    ])
+    email = StringField('College / Student Email', validators=[
+        DataRequired(message="Please enter your email address."),
+        Email(message="Please enter a valid email address.")
+    ])
+    password = PasswordField('Password', validators=[
+        DataRequired(message="Password is required."),
+        Length(min=6, message="Password must be at least 6 characters long.")
+    ])
+    confirm_password = PasswordField('Confirm Password', validators=[
+        DataRequired(message="Please confirm your password."),
+        EqualTo('password', message="Passwords must match.")
+    ])
+    submit = SubmitField('Create Account')
+
+    def validate_email(self, email):
+        """Ensure email is not already registered."""
+        user = User.query.filter_by(email=email.data.strip().lower()).first()
+        if user:
+            raise ValidationError("An account with this email address already exists. Please log in.")
+
+
+class LoginForm(FlaskForm):
+    """Form for user authentication."""
+    email = StringField('Email Address', validators=[
+        DataRequired(message="Please enter your email address."),
+        Email(message="Please enter a valid email address.")
+    ])
+    password = PasswordField('Password', validators=[
+        DataRequired(message="Please enter your password.")
+    ])
+    remember_me = BooleanField('Remember Me')
+    submit = SubmitField('Sign In')
+
+
+class SummaryForm(FlaskForm):
+    """Form for posting a class summary / catch-up note."""
+    course_id = SelectField('Course', coerce=int, validators=[
+        DataRequired(message="Please select a course.")
+    ])
+    date = DateField('Class Date', default=date.today, validators=[
+        DataRequired(message="Please select the date of the class.")
+    ])
+    category = SelectField('Category', choices=[
+        ('Lecture Notes', '📝 Lecture Notes & Concepts'),
+        ('Assignment', '📋 Assignment / Homework Given'),
+        ('Exam Prep', '🎯 Midterm / Quiz Highlights'),
+        ('Lab Work', '🧪 Practical / Lab Experiment')
+    ], default='Lecture Notes')
+    topic = StringField('Topic / Chapter Covered', validators=[
+        Optional(),
+        Length(max=200, message="Topic title cannot exceed 200 characters.")
+    ])
+    content = TextAreaField('Class Summary & Key Takeaways', validators=[
+        DataRequired(message="Please share what was covered, assignments assigned, or announcements made.")
+    ])
+    submit = SubmitField('Post Class Catch-up')
+
+
+class ChatMessageForm(FlaskForm):
+    """Form for posting messages in unofficial class/lounge chat."""
+    message = TextAreaField('Message / Requirement', validators=[
+        DataRequired(message="Please enter your message or question.")
+    ])
+    category = SelectField('Type', choices=[
+        ('General', '💬 General Discussion'),
+        ('Requirement', '🙋 Requirement / Lab Manual'),
+        ('Doubt', '❓ Question / Doubt'),
+        ('Notes Request', '📄 Notes Request')
+    ], default='General')
+    submit = SubmitField('Send Message')
+
+
+class AnnouncementForm(FlaskForm):
+    """Form for posting an announcement to the class board."""
+    title = StringField('Announcement Title', validators=[
+        DataRequired(message="Please enter an announcement title."),
+        Length(max=150, message="Title cannot exceed 150 characters.")
+    ])
+    tag = SelectField('Priority / Tag', choices=[
+        ('General', '📢 General Update'),
+        ('Assignment', '⏰ Assignment Deadline'),
+        ('Exam', '📝 Midterm / Exam Alert'),
+        ('Quiz', '⚡ Upcoming Quiz'),
+        ('Room Change', '🚪 Room / Venue Change'),
+        ('Urgent', '🚨 Urgent Notice')
+    ], default='General')
+    content = TextAreaField('Announcement Details', validators=[
+        DataRequired(message="Please provide announcement details.")
+    ])
+    submit = SubmitField('Publish Announcement')
+
+
+class AttendanceForm(FlaskForm):
+    """Form for recording or updating course attendance."""
+    course_id = SelectField('Course', coerce=int, validators=[
+        DataRequired(message="Please select a course.")
+    ])
+    total_classes = IntegerField('Total Classes Held', validators=[
+        DataRequired(message="Please enter total classes held."),
+        NumberRange(min=0, message="Total classes cannot be negative.")
+    ])
+    attended_classes = IntegerField('Classes Attended', validators=[
+        NumberRange(min=0, message="Attended classes cannot be negative.")
+    ])
+    target_percentage = FloatField('Target Minimum (%)', default=75.0, validators=[
+        DataRequired(message="Please enter target criteria percentage."),
+        NumberRange(min=50.0, max=100.0, message="Target must be between 50% and 100%.")
+    ])
+    submit = SubmitField('Save Attendance')
+
+    def validate_attended_classes(self, field):
+        """Validate attended cannot exceed total classes."""
+        if self.total_classes.data is not None and field.data is not None:
+            if field.data > self.total_classes.data:
+                raise ValidationError("Classes attended cannot be greater than total classes held.")

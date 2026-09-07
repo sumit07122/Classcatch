@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center my-5">
+    <div class="col-md-7 col-lg-5">
+        <div class="card card-modern p-4 p-md-5 bg-white shadow-sm">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-circle mb-2" style="width: 50px; height: 50px;">
+                    <i class="fa-solid fa-user-plus fs-4"></i>
+                </div>
+                <h3 class="fw-extrabold mb-1">Create Account</h3>
+                <p class="text-muted small">Join your college classmates on ClassCatch</p>
+            </div>
+
+            <form method="POST" action="{{ url_for('register') }}">
+                {{ form.hidden_tag() }}
+
+                <div class="mb-3">
+                    {{ form.name.label(class="form-label fw-bold small text-muted") }}
+                    {{ form.name(class="form-control form-control-lg rounded-3", placeholder="Alex Kumar") }}
+                    {% if form.name.errors %}
+                        <div class="text-danger small mt-1">{{ form.name.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.email.label(class="form-label fw-bold small text-muted") }}
+                    {{ form.email(class="form-control form-control-lg rounded-3", placeholder="student@college.edu") }}
+                    {% if form.email.errors %}
+                        <div class="text-danger small mt-1">{{ form.email.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.password.label(class="form-label fw-bold small text-muted") }}
+                    {{ form.password(class="form-control form-control-lg rounded-3", placeholder="At least 6 characters") }}
+                    {% if form.password.errors %}
+                        <div class="text-danger small mt-1">{{ form.password.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    {{ form.confirm_password.label(class="form-label fw-bold small text-muted") }}
+                    {{ form.confirm_password(class="form-control form-control-lg rounded-3", placeholder="Confirm password") }}
+                    {% if form.confirm_password.errors %}
+                        <div class="text-danger small mt-1">{{ form.confirm_password.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                {{ form.submit(class="btn btn-primary-gradient w-100 py-2 fs-6 fw-bold mb-3") }}
+
+                <div class="text-center text-muted small">
+                    Already registered? 
+                    <a href="{{ url_for('login') }}" class="text-primary fw-bold text-decoration-none">Sign in here</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

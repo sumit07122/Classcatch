@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center my-5">
+    <div class="col-md-6 col-lg-5">
+        <div class="card card-modern p-4 p-md-5 bg-white shadow-sm">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-circle mb-2" style="width: 50px; height: 50px;">
+                    <i class="fa-solid fa-graduation-cap fs-4"></i>
+                </div>
+                <h3 class="fw-extrabold mb-1">Welcome Back</h3>
+                <p class="text-muted small">Sign in to your ClassCatch student account</p>
+            </div>
+
+            <form method="POST" action="{{ url_for('login', next=request.args.get('next')) }}">
+                {{ form.hidden_tag() }}
+
+                <div class="mb-3">
+                    {{ form.email.label(class="form-label fw-bold small text-muted") }}
+                    {{ form.email(class="form-control form-control-lg rounded-3", placeholder="student@college.edu") }}
+                    {% if form.email.errors %}
+                        <div class="text-danger small mt-1">{{ form.email.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.password.label(class="form-label fw-bold small text-muted") }}
+                    {{ form.password(class="form-control form-control-lg rounded-3", placeholder="••••••••") }}
+                    {% if form.password.errors %}
+                        <div class="text-danger small mt-1">{{ form.password.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4 form-check">
+                    {{ form.remember_me(class="form-check-input") }}
+                    {{ form.remember_me.label(class="form-check-label small text-muted") }}
+                </div>
+
+                {{ form.submit(class="btn btn-primary-gradient w-100 py-2 fs-6 fw-bold mb-3") }}
+
+                <div class="text-center text-muted small">
+                    Don't have an account yet? 
+                    <a href="{{ url_for('register') }}" class="text-primary fw-bold text-decoration-none">Create one here</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

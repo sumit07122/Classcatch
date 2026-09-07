@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card card-modern p-4 p-md-5 bg-white shadow-sm">
+            <div class="mb-4 text-center">
+                <span class="badge badge-code mb-2">ClassCatch Contributor</span>
+                <h2 class="fw-extrabold mb-1">Post a Class Catch-up Note</h2>
+                <p class="text-muted small">Share lecture highlights, assignments given, and announcements to help absent classmates catch up.</p>
+            </div>
+
+            <form method="POST" action="{{ url_for('post_summary') }}">
+                {{ form.hidden_tag() }}
+
+                <div class="mb-3">
+                    {{ form.course_id.label(class="form-label fw-bold small text-muted") }}
+                    {{ form.course_id(class="form-select form-select-lg rounded-3") }}
+                    {% if form.course_id.errors %}
+                        <div class="text-danger small mt-1">{{ form.course_id.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        {{ form.date.label(class="form-label fw-bold small text-muted") }}
+                        {{ form.date(class="form-control form-control-lg rounded-3") }}
+                        {% if form.date.errors %}
+                            <div class="text-danger small mt-1">{{ form.date.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.category.label(class="form-label fw-bold small text-muted") }}
+                        {{ form.category(class="form-select form-select-lg rounded-3") }}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    {{ form.topic.label(class="form-label fw-bold small text-muted") }}
+                    {{ form.topic(class="form-control form-control-lg rounded-3", placeholder="e.g. Chapter 4: Deadlocks & Banker's Algorithm") }}
+                    {% if form.topic.errors %}
+                        <div class="text-danger small mt-1">{{ form.topic.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    {{ form.content.label(class="form-label fw-bold small text-muted") }}
+                    {{ form.content(class="form-control rounded-3", rows=7, placeholder="1. What was taught: Key definitions, theorem or slides covered...\n2. Assignments / Homework: Questions assigned, deadline...\n3. Announcements: Midterm dates, quiz alerts, next class prep...") }}
+                    {% if form.content.errors %}
+                        <div class="text-danger small mt-1">{{ form.content.errors[0] }}</div>
+                    {% endif %}
+                    <div class="form-text small text-muted">
+                        <i class="bi bi-info-circle me-1"></i> Tip: Use numbered bullets or headers to make your notes easy to scan!
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('index') }}" class="btn btn-light border px-4 py-2">Cancel</a>
+                    {{ form.submit(class="btn btn-primary-gradient px-5 py-2 fs-6 fw-bold") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

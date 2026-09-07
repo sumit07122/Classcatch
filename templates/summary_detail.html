@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <!-- Back Navigation -->
+        <div class="mb-3">
+            <a href="{{ url_for('course_detail', course_id=summary.course.id) }}" class="text-decoration-none text-muted small fw-bold">
+                <i class="bi bi-arrow-left me-1"></i> Back to {{ summary.course.code }} Catch-ups
+            </a>
+        </div>
+
+        <!-- Note Card -->
+        <div class="card card-modern p-4 p-md-5 bg-white shadow-sm mb-4">
+            <!-- Header Meta -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge badge-code">{{ summary.course.code }}</span>
+                    <span class="badge bg-light text-dark border">{{ summary.course.name }}</span>
+                    <span class="badge bg-primary text-white">{{ summary.category }}</span>
+                </div>
+                <div class="text-muted small">
+                    Posted on {{ summary.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+                </div>
+            </div>
+
+            <h2 class="fw-extrabold text-dark mb-3">
+                {{ summary.topic or 'Lecture Summary & Catch-up' }}
+            </h2>
+
+            <div class="p-3 bg-light rounded-3 d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 border">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge rounded-circle bg-primary text-white p-3" style="width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                        {{ summary.author.name[0]|upper }}
+                    </span>
+                    <div>
+                        <div class="fw-bold">{{ summary.author.name }}</div>
+                        <div class="text-muted small">Peer Contributor &middot; {{ summary.author.role|capitalize }}</div>
+                    </div>
+                </div>
+                <div class="text-md-end">
+                    <div class="small text-muted">Class Lecture Date:</div>
+                    <div class="fw-bold text-primary fs-6">
+                        <i class="bi bi-calendar-event me-1"></i> {{ summary.date.strftime('%A, %B %d, %Y') }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="card-body px-0 py-2">
+                <div class="summary-content-preview fs-6 mb-4" style="line-height: 1.8; color: #1e293b;">
+                    {{ summary.content }}
+                </div>
+            </div>
+
+            <!-- Action Bar -->
+            <div class="pt-4 border-top d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div class="d-flex align-items-center gap-2">
+                    <form action="{{ url_for('mark_helpful', summary_id=summary.id) }}" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-success px-3 py-2 rounded-pill shadow-sm">
+                            <i class="bi bi-hand-thumbs-up-fill me-1"></i> Found this Helpful ({{ summary.helpful_count }})
+                        </button>
+                    </form>
+                    <button class="btn btn-outline-custom px-3 py-2 rounded-pill" onclick="window.print();">
+                        <i class="bi bi-printer me-1"></i> Print / Save PDF
+                    </button>
+                </div>
+                <div>
+                    <a href="{{ url_for('course_detail', course_id=summary.course_id, tab='chat') }}" class="btn btn-light border px-3 py-2 rounded-pill">
+                        <i class="bi bi-chat-dots me-1"></i> Discuss in Class Chat
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
