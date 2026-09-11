@@ -3,95 +3,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if title %}{{ title }} - ClassCatch{% else %}ClassCatch - Class Catch-up Notes{% endif %}</title>
+    <meta name="description" content="ClassCatch - Peer-powered class catch-up, unofficial discussion, and attendance calculator for college students.">
+    <title>{% if title %}{{ title }} | ClassCatch{% else %}ClassCatch - Never Miss a Class{% endif %}</title>
 
-    <!-- Google Font: Plus Jakarta Sans -->
+    <!-- Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- Bootstrap 5 CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap 5.3.3 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
+    <!-- Bootstrap Icons & Font Awesome -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    <!-- Clean Stylesheet -->
+    <!-- Custom Modern Styling -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
-    <!-- Simple Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-clean sticky-top">
+    <!-- Main Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="bi bi-mortarboard-fill"></i> ClassCatch
+            <a class="navbar-brand" href="{{ url_for('index') }}" id="nav-brand">
+                <i class="fa-solid fa-graduation-cap"></i> ClassCatch
             </a>
             
-            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navContent">
+            <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
-            <div class="collapse navbar-collapse" id="navContent">
-                <ul class="navbar-nav me-auto ms-lg-3">
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3 gap-1">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
-                            Courses
+                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}" id="nav-home">
+                            <i class="bi bi-house-door me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" id="nav-courses">
+                            <i class="bi bi-journal-bookmark me-1"></i> Courses
+                        </a>
+                        <ul class="dropdown-menu shadow-sm border-0 rounded-3">
+                            {% for c in global_courses %}
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ url_for('course_detail', course_id=c.id) }}">
+                                        <strong>{{ c.code }}</strong> - <span class="text-muted small">{{ c.name }}</span>
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li><span class="dropdown-item text-muted">No courses yet</span></li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'lounge' %}active{% endif %}" href="{{ url_for('lounge') }}" id="nav-lounge">
+                            <i class="bi bi-chat-dots me-1"></i> Campus Lounge
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'attendance_calculator' %}active{% endif %}" href="{{ url_for('attendance_calculator') }}">
-                            Attendance Calculator
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'lounge' %}active{% endif %}" href="{{ url_for('lounge') }}">
-                            Campus Chat
+                        <a class="nav-link {% if request.endpoint == 'attendance_calculator' %}active{% endif %}" href="{{ url_for('attendance_calculator') }}" id="nav-attendance">
+                            <i class="bi bi-calculator me-1"></i> Attendance & Bunks
                         </a>
                     </li>
                 </ul>
 
+                <!-- Action & User Auth Controls -->
                 <div class="d-flex align-items-center gap-2">
                     {% if current_user.is_authenticated %}
-                        <a href="{{ url_for('post_summary') }}" class="btn btn-primary-clean btn-sm">
-                            <i class="bi bi-plus-lg me-1"></i> Post Note
+                        <a href="{{ url_for('post_summary') }}" class="btn btn-primary-gradient btn-sm px-3 py-2 d-flex align-items-center gap-2" id="nav-btn-post">
+                            <i class="bi bi-plus-circle-fill"></i>
+                            <span>Post Catch-up</span>
                         </a>
-                        <span class="text-muted small ms-2 me-1">Hi, <strong>{{ current_user.name.split()[0] }}</strong></span>
-                        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-clean text-danger">Logout</a>
+                        <div class="dropdown">
+                            <button class="btn btn-light rounded-pill border px-3 py-1 dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="badge rounded-circle bg-primary text-white p-2" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;">
+                                    {{ current_user.name[0]|upper }}
+                                </span>
+                                <span class="small fw-bold d-none d-sm-inline">{{ current_user.name.split()[0] }}</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
+                                <li class="dropdown-header">
+                                    <div class="fw-bold">{{ current_user.name }}</div>
+                                    <div class="text-muted small text-truncate" style="max-width: 180px;">{{ current_user.email }}</div>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('attendance_calculator') }}"><i class="bi bi-pie-chart me-2"></i> My Attendance</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right me-2"></i> Log Out</a></li>
+                            </ul>
+                        </div>
                     {% else %}
-                        <a href="{{ url_for('login') }}" class="btn btn-outline-clean btn-sm">Log In</a>
-                        <a href="{{ url_for('register') }}" class="btn btn-primary-clean btn-sm">Register</a>
+                        <a href="{{ url_for('login') }}" class="btn btn-outline-custom btn-sm px-3" id="nav-login">Sign In</a>
+                        <a href="{{ url_for('register') }}" class="btn btn-primary-gradient btn-sm px-3" id="nav-register">Join ClassCatch</a>
                     {% endif %}
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Flash Messages -->
+    <!-- Dynamic Flash Messages -->
     <div class="container mt-3">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category if category != 'danger' else 'danger' }} alert-dismissible fade show p-2 px-3 small d-flex justify-content-between align-items-center" role="alert">
-                        <span>{{ message }}</span>
-                        <button type="button" class="btn-close p-2" data-bs-dismiss="alert"></button>
+                    <div class="alert alert-{{ category }} alert-dismissible fade show card-modern shadow-sm border-0 d-flex align-items-center justify-content-between p-3" role="alert">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if category == 'success' %}
+                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            {% elif category == 'danger' %}
+                                <i class="bi bi-exclamation-octagon-fill text-danger fs-5"></i>
+                            {% elif category == 'warning' %}
+                                <i class="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
+                            {% else %}
+                                <i class="bi bi-info-circle-fill text-primary fs-5"></i>
+                            {% endif %}
+                            <span>{{ message }}</span>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
     </div>
 
-    <!-- Main Content -->
+    <!-- Page Body -->
     <main class="container my-4 flex-grow-1">
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Simple Footer -->
+    <!-- Modern Footer -->
     <footer>
-        <div class="container text-center text-muted">
-            <span><strong>ClassCatch</strong> &middot; Simple peer class catch-up notes for college students</span>
+        <div class="container text-center text-muted small">
+            <div class="d-flex flex-wrap justify-content-between align-items-center py-2">
+                <div class="d-flex align-items-center gap-2">
+                    <strong class="text-dark"><i class="fa-solid fa-graduation-cap text-primary"></i> ClassCatch</strong> &copy; {{ current_year }} &middot; Peer-Powered College Network
+                </div>
+                <div class="d-flex gap-3">
+                    <a href="{{ url_for('index') }}" class="text-decoration-none text-muted">Courses</a>
+                    <a href="{{ url_for('lounge') }}" class="text-decoration-none text-muted">Lounge</a>
+                    <a href="{{ url_for('attendance_calculator') }}" class="text-decoration-none text-muted">Attendance Calculator</a>
+                </div>
+            </div>
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap 5.3 JS Bundle CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>

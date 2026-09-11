@@ -1,125 +1,285 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row justify-content-center">
+<div class="mb-4">
+    <h2 class="fw-extrabold mb-1"><i class="bi bi-calculator text-primary me-2"></i> Attendance & Bunk Predictor</h2>
+    <p class="text-muted small mb-0">Plan your attendance with precision. Know exactly how many classes you can safely skip or how many you must attend to maintain 75%.</p>
+</div>
+
+<div class="row g-4 mb-5">
+    <!-- Live Interactive Calculator -->
     <div class="col-lg-7">
-        <div class="card card-clean p-4 p-md-5 bg-white mb-4">
-            <h3 class="fw-bold mb-1"><i class="bi bi-calculator text-primary me-2"></i> Attendance Calculator</h3>
-            <p class="text-muted small mb-4">Enter your class numbers to instantly see your percentage and how many classes you can safely skip (or need to attend).</p>
+        <div class="card card-modern p-4 h-100 bg-white shadow-sm">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-lightning-charge-fill text-warning"></i> Instant Attendance Calculator
+            </h5>
 
             <div class="row g-3 mb-4">
                 <div class="col-md-4">
-                    <label class="form-label small fw-semibold text-muted">Total Classes Held</label>
-                    <input type="number" id="calc-total" class="form-control rounded-3" value="40" min="1">
+                    <label class="form-label fw-bold small text-muted">Total Classes Held</label>
+                    <input type="number" id="calc-total" class="form-control rounded-3" value="40" min="1" step="1">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label small fw-semibold text-muted">Classes Attended</label>
-                    <input type="number" id="calc-attended" class="form-control rounded-3" value="34" min="0">
+                    <label class="form-label fw-bold small text-muted">Classes Attended</label>
+                    <input type="number" id="calc-attended" class="form-control rounded-3" value="34" min="0" step="1">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label small fw-semibold text-muted">Target Percentage (%)</label>
-                    <input type="number" id="calc-target" class="form-control rounded-3" value="75" min="1" max="100">
+                    <label class="form-label fw-bold small text-muted">Target Minimum (%)</label>
+                    <input type="number" id="calc-target" class="form-control rounded-3" value="75" min="50" max="100" step="1">
                 </div>
             </div>
 
-            <!-- Result Card -->
-            <div class="p-4 rounded-3 text-center mb-3" id="calc-result-box" style="background: #f8fafc; border: 1px solid #e2e8f0;">
-                <div class="text-muted small fw-semibold text-uppercase mb-1">Your Attendance</div>
-                <div class="display-4 fw-bold text-primary mb-2" id="calc-pct">85.0%</div>
-
-                <div class="progress mb-3" style="height: 8px;">
-                    <div class="progress-bar bg-success" id="calc-bar" style="width: 85%;"></div>
-                </div>
-
-                <h5 class="fw-bold text-dark mb-1" id="calc-headline">You can safely bunk 5 more classes!</h5>
-                <p class="text-muted small mb-0" id="calc-subtext">Missing the next 5 classes will still keep you above 75%.</p>
+            <!-- Quick Counter Stepper Controls -->
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <button class="btn btn-sm btn-outline-success" id="btn-add-attended">
+                    <i class="bi bi-plus-lg"></i> Attended (+1)
+                </button>
+                <button class="btn btn-sm btn-outline-danger" id="btn-add-bunk">
+                    <i class="bi bi-dash-lg"></i> Bunked (+1 Held, +0 Attended)
+                </button>
+                <button class="btn btn-sm btn-light border ms-auto" id="btn-reset-calc">Reset</button>
             </div>
 
-            <!-- Quick Controls -->
-            <div class="d-flex justify-content-center gap-2">
-                <button class="btn btn-sm btn-outline-clean" id="btn-plus-attended">+1 Attended</button>
-                <button class="btn btn-sm btn-outline-clean" id="btn-plus-bunk">+1 Missed / Bunk</button>
-                <button class="btn btn-sm btn-light border" id="btn-reset">Reset</button>
+            <!-- Real-time Prediction Output Box -->
+            <div class="card p-4 rounded-4 border-0" id="result-box" style="background: #f1f5f9;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">Current Attendance</span>
+                        <div class="display-5 fw-extrabold text-primary" id="disp-percentage">85.0%</div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge px-3 py-2 rounded-pill fs-6" id="disp-status-badge">Safe Zone</span>
+                    </div>
+                </div>
+
+                <!-- Visual Progress Bar -->
+                <div class="progress progress-thin mb-3" style="height: 10px;">
+                    <div class="progress-bar bg-primary" id="disp-progress-bar" role="progressbar" style="width: 85%;"></div>
+                </div>
+
+                <!-- Bunk / Recovery Advice -->
+                <div class="p-3 rounded-3 bg-white border" id="disp-advice-container">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-shield-check fs-2 text-success" id="disp-icon"></i>
+                        <div>
+                            <div class="fw-bold fs-6" id="disp-headline">You can safely bunk 5 more classes!</div>
+                            <div class="text-muted small" id="disp-subtext">Skipping the next 5 lectures will still keep your attendance above 75.0%.</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- Save / Track Per-Course Form -->
+    <div class="col-lg-5">
+        <div class="card card-modern p-4 h-100 bg-white shadow-sm">
+            <h5 class="fw-bold mb-2 d-flex align-items-center gap-2">
+                <i class="bi bi-bookmark-plus text-primary"></i> Track Enrolled Course
+            </h5>
+            <p class="text-muted small mb-3">Save and monitor attendance for each of your college courses individually.</p>
+
+            {% if current_user.is_authenticated %}
+                <form action="{{ url_for('attendance_calculator') }}" method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.course_id.label(class="form-label fw-bold small text-muted") }}
+                        {{ form.course_id(class="form-select rounded-3") }}
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            {{ form.total_classes.label(class="form-label fw-bold small text-muted") }}
+                            {{ form.total_classes(class="form-control rounded-3", placeholder="e.g. 30") }}
+                        </div>
+                        <div class="col-6">
+                            {{ form.attended_classes.label(class="form-label fw-bold small text-muted") }}
+                            {{ form.attended_classes(class="form-control rounded-3", placeholder="e.g. 26") }}
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        {{ form.target_percentage.label(class="form-label fw-bold small text-muted") }}
+                        {{ form.target_percentage(class="form-control rounded-3", value="75.0") }}
+                    </div>
+                    {{ form.submit(class="btn btn-primary-gradient w-100 py-2") }}
+                </form>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-lock fs-2 text-muted mb-2 d-block"></i>
+                    <h6 class="fw-bold">Sign In to Save Courses</h6>
+                    <p class="text-muted small mb-3">Create a free account or log in to persist your course attendance records throughout the semester.</p>
+                    <a href="{{ url_for('login', next=request.url) }}" class="btn btn-primary-gradient btn-sm px-4">Sign In</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
+
+<!-- Logged-in User's Enrolled Course Attendance Dashboard -->
+{% if current_user.is_authenticated %}
+    <div class="card card-modern p-4 bg-white shadow-sm mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0"><i class="bi bi-collection text-primary me-2"></i> Your Saved Course Attendance Records</h5>
+            <span class="badge bg-light text-dark border">{{ user_records|length }} Tracked</span>
+        </div>
+
+        {% if user_records %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr class="small text-muted text-uppercase">
+                            <th>Course</th>
+                            <th>Attended / Total</th>
+                            <th>Current %</th>
+                            <th>Status & Bunk Forecast</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in user_records %}
+                            <tr>
+                                <td>
+                                    <div class="fw-bold">
+                                        <a href="{{ url_for('course_detail', course_id=rec.course.id) }}" class="text-dark text-decoration-none">
+                                            {{ rec.course.code }}
+                                        </a>
+                                    </div>
+                                    <div class="text-muted small">{{ rec.course.name }}</div>
+                                </td>
+                                <td>
+                                    <span class="fw-bold">{{ rec.attended_classes }}</span> / {{ rec.total_classes }} classes
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fw-bold {% if rec.current_percentage >= rec.target_percentage %}text-success{% else %}text-danger{% endif %}">
+                                            {{ rec.current_percentage }}%
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if rec.current_percentage >= rec.target_percentage %}
+                                        <span class="badge attendance-pill-safe py-1 px-2">
+                                            <i class="bi bi-check-circle me-1"></i> {{ rec.bunks_available }} Safe Bunks Available
+                                        </span>
+                                    {% else %}
+                                        <span class="badge attendance-pill-danger py-1 px-2">
+                                            <i class="bi bi-exclamation-triangle me-1"></i> Attend Next {{ rec.classes_needed }} Classes Consecutively
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <form action="{{ url_for('delete_attendance', record_id=rec.id) }}" method="POST" onsubmit="return confirm('Remove tracking for this course?');" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2 border-0" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4 text-muted">
+                <p class="mb-0">You haven't added any course attendance records yet. Use the form above to track your first subject!</p>
+            </div>
+        {% endif %}
+    </div>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-    const totalEl = document.getElementById('calc-total');
-    const attendedEl = document.getElementById('calc-attended');
-    const targetEl = document.getElementById('calc-target');
+    // Live Attendance & Bunk Predictor Logic
+    const inputTotal = document.getElementById('calc-total');
+    const inputAttended = document.getElementById('calc-attended');
+    const inputTarget = document.getElementById('calc-target');
 
-    const pctEl = document.getElementById('calc-pct');
-    const barEl = document.getElementById('calc-bar');
-    const headlineEl = document.getElementById('calc-headline');
-    const subtextEl = document.getElementById('calc-subtext');
+    const dispPercentage = document.getElementById('disp-percentage');
+    const dispBadge = document.getElementById('disp-status-badge');
+    const dispProgressBar = document.getElementById('disp-progress-bar');
+    const dispHeadline = document.getElementById('disp-headline');
+    const dispSubtext = document.getElementById('disp-subtext');
+    const dispIcon = document.getElementById('disp-icon');
 
-    function updateCalc() {
-        let total = parseInt(totalEl.value) || 0;
-        let attended = parseInt(attendedEl.value) || 0;
-        let target = parseFloat(targetEl.value) || 75;
+    function calculateAttendance() {
+        let total = parseInt(inputTotal.value) || 0;
+        let attended = parseInt(inputAttended.value) || 0;
+        let target = parseFloat(inputTarget.value) || 75.0;
 
         if (attended > total) {
             attended = total;
-            attendedEl.value = total;
+            inputAttended.value = total;
         }
 
-        let pct = total === 0 ? 100 : ((attended / total) * 100);
-        pctEl.innerText = pct.toFixed(1) + '%';
-        barEl.style.width = Math.min(100, Math.max(0, pct)) + '%';
+        let percentage = total === 0 ? 100 : ((attended / total) * 100);
+        let pctFixed = percentage.toFixed(1);
+
+        dispPercentage.innerText = pctFixed + '%';
+        dispProgressBar.style.width = Math.min(100, Math.max(0, percentage)) + '%';
 
         let targetRatio = target / 100.0;
 
-        if (pct >= target) {
-            barEl.className = 'progress-bar bg-success';
+        if (percentage >= target) {
+            // Safe
+            dispBadge.className = 'badge bg-success px-3 py-2 rounded-pill fs-6';
+            dispBadge.innerText = 'Safe Zone';
+            dispProgressBar.className = 'progress-bar bg-success';
+            dispIcon.className = 'bi bi-shield-check fs-2 text-success';
+
+            // Safe bunks formula: floor((Attended / targetRatio) - total)
             let maxBunks = Math.floor((attended / targetRatio) - total);
             maxBunks = Math.max(0, maxBunks);
 
             if (maxBunks === 0) {
-                headlineEl.innerText = "You are right at the border!";
-                subtextEl.innerText = `You cannot miss the next class without falling below ${target}%.`;
+                dispHeadline.innerText = "You are right on the edge!";
+                dispSubtext.innerText = `You cannot miss the next class without falling below ${target}%.`;
             } else if (maxBunks === 1) {
-                headlineEl.innerText = "You can safely bunk 1 class!";
-                subtextEl.innerText = `Missing 1 lecture will still keep your attendance at or above ${target}%.`;
+                dispHeadline.innerText = `You can safely bunk 1 class!`;
+                dispSubtext.innerText = `Missing 1 lecture will leave you at or above ${target}%.`;
             } else {
-                headlineEl.innerText = `You can safely bunk ${maxBunks} classes!`;
-                subtextEl.innerText = `You can miss up to ${maxBunks} classes consecutively and remain above ${target}%.`;
+                dispHeadline.innerText = `You can safely bunk ${maxBunks} classes!`;
+                dispSubtext.innerText = `You can skip up to ${maxBunks} lectures consecutively and remain above ${target}%.`;
             }
         } else {
-            barEl.className = 'progress-bar bg-danger';
+            // Danger / Recovery needed
+            dispBadge.className = 'badge bg-danger px-3 py-2 rounded-pill fs-6';
+            dispBadge.innerText = 'Shortage Alert';
+            dispProgressBar.className = 'progress-bar bg-danger';
+            dispIcon.className = 'bi bi-exclamation-octagon-fill fs-2 text-danger';
+
+            // Recovery formula: ceil((targetRatio * total - attended) / (1 - targetRatio))
             let needed = Math.ceil(((targetRatio * total) - attended) / (1.0 - targetRatio));
             needed = Math.max(1, needed);
 
-            headlineEl.innerText = `Attend next ${needed} classes consecutively!`;
-            subtextEl.innerText = `To get back up to ${target}%, you must not miss any of the next ${needed} lectures.`;
+            dispHeadline.innerText = `Attend next ${needed} classes consecutively!`;
+            dispSubtext.innerText = `To climb back to ${target}%, you must not miss any of the next ${needed} lectures.`;
         }
     }
 
-    totalEl.addEventListener('input', updateCalc);
-    attendedEl.addEventListener('input', updateCalc);
-    targetEl.addEventListener('input', updateCalc);
+    inputTotal.addEventListener('input', calculateAttendance);
+    inputAttended.addEventListener('input', calculateAttendance);
+    inputTarget.addEventListener('input', calculateAttendance);
 
-    document.getElementById('btn-plus-attended').addEventListener('click', () => {
-        totalEl.value = (parseInt(totalEl.value) || 0) + 1;
-        attendedEl.value = (parseInt(attendedEl.value) || 0) + 1;
-        updateCalc();
+    document.getElementById('btn-add-attended').addEventListener('click', () => {
+        inputTotal.value = parseInt(inputTotal.value || 0) + 1;
+        inputAttended.value = parseInt(inputAttended.value || 0) + 1;
+        calculateAttendance();
     });
 
-    document.getElementById('btn-plus-bunk').addEventListener('click', () => {
-        totalEl.value = (parseInt(totalEl.value) || 0) + 1;
-        updateCalc();
+    document.getElementById('btn-add-bunk').addEventListener('click', () => {
+        inputTotal.value = parseInt(inputTotal.value || 0) + 1;
+        calculateAttendance();
     });
 
-    document.getElementById('btn-reset').addEventListener('click', () => {
-        totalEl.value = 40;
-        attendedEl.value = 34;
-        targetEl.value = 75;
-        updateCalc();
+    document.getElementById('btn-reset-calc').addEventListener('click', () => {
+        inputTotal.value = 40;
+        inputAttended.value = 34;
+        inputTarget.value = 75;
+        calculateAttendance();
     });
 
-    updateCalc();
+    // Run once on load
+    calculateAttendance();
 </script>
 {% endblock %}

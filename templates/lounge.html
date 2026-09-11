@@ -1,54 +1,115 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row justify-content-center">
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-extrabold mb-1"><i class="bi bi-chat-dots text-primary me-2"></i> Campus Lounge & Peer Requirements</h2>
+        <p class="text-muted small mb-0">Unofficial peer discussion board across all batches. Exchange lab manuals, ask doubts, and find project partners.</p>
+    </div>
+    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">
+        <i class="bi bi-people-fill text-primary me-1"></i> Open Student Channel
+    </span>
+</div>
+
+<!-- Category Filters -->
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="{{ url_for('lounge') }}" class="btn btn-sm {% if not category_filter or category_filter == 'All' %}btn-primary-gradient{% else %}btn-outline-custom{% endif %} rounded-pill px-3">
+        All Posts
+    </a>
+    <a href="{{ url_for('lounge', category='Requirement') }}" class="btn btn-sm {% if category_filter == 'Requirement' %}btn-primary-gradient{% else %}btn-outline-custom{% endif %} rounded-pill px-3">
+        🙋 Requirements
+    </a>
+    <a href="{{ url_for('lounge', category='Notes Request') }}" class="btn btn-sm {% if category_filter == 'Notes Request' %}btn-primary-gradient{% else %}btn-outline-custom{% endif %} rounded-pill px-3">
+        📄 Notes Requests
+    </a>
+    <a href="{{ url_for('lounge', category='Doubt') }}" class="btn btn-sm {% if category_filter == 'Doubt' %}btn-primary-gradient{% else %}btn-outline-custom{% endif %} rounded-pill px-3">
+        ❓ Doubts & Questions
+    </a>
+    <a href="{{ url_for('lounge', category='General') }}" class="btn btn-sm {% if category_filter == 'General' %}btn-primary-gradient{% else %}btn-outline-custom{% endif %} rounded-pill px-3">
+        💬 General
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- Messages Feed -->
     <div class="col-lg-8">
-        <div class="card card-clean p-4 bg-white mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                <div>
-                    <h4 class="fw-bold mb-0"><i class="bi bi-chat-dots text-primary me-2"></i> Campus Chat</h4>
-                    <div class="text-muted small">Open discussion board for notes, queries, and study discussions.</div>
-                </div>
-                <span class="badge bg-light text-muted border">{{ messages|length }} messages</span>
+        <div class="card card-modern p-4 bg-white shadow-sm">
+            <div class="d-flex justify-content-between align-items-center pb-3 mb-3 border-bottom">
+                <h5 class="fw-bold mb-0">Active Campus Feed</h5>
+                <span class="text-muted small">{{ messages|length }} discussions</span>
             </div>
 
-            <!-- Messages Stream -->
-            <div class="chat-simple-box mb-3" id="loungeChatBox" style="max-height: 450px;">
+            <div class="d-flex flex-column gap-3" id="loungeFeed">
                 {% for msg in messages %}
-                    <div class="chat-simple-msg">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <strong class="text-dark">{{ msg.author.name }}</strong>
-                            <span class="text-muted" style="font-size: 0.75rem;">{{ msg.created_at.strftime('%b %d, %I:%M %p') }}</span>
+                    <div class="p-3 rounded-3 bg-light border">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge rounded-circle bg-primary text-white p-2" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                                    {{ msg.author.name[0]|upper }}
+                                </span>
+                                <div>
+                                    <div class="fw-bold small">{{ msg.author.name }}</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">{{ msg.author.role|capitalize }}</div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-white text-dark border small">{{ msg.category }}</span>
+                                <span class="text-muted" style="font-size: 0.75rem;">{{ msg.created_at.strftime('%b %d, %I:%M %p') }}</span>
+                            </div>
                         </div>
-                        <div class="text-secondary" style="white-space: pre-wrap;">{{ msg.message }}</div>
+                        <div class="text-dark" style="white-space: pre-wrap; font-size: 0.95rem;">
+                            {{ msg.message }}
+                        </div>
                     </div>
                 {% else %}
-                    <div class="text-center py-5 text-muted small">No messages yet. Start the conversation below!</div>
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-chat-left-dots fs-1 text-muted opacity-50 mb-2 d-block"></i>
+                        <p class="mb-0">No posts in this category yet. Be the first to start a conversation!</p>
+                    </div>
                 {% endfor %}
             </div>
+        </div>
+    </div>
 
-            <!-- Send Message -->
+    <!-- Post Requirement Form Sidebar -->
+    <div class="col-lg-4">
+        <div class="card card-modern p-4 bg-white shadow-sm sticky-top" style="top: 85px;">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-send text-primary"></i> Post to Campus
+            </h5>
             {% if current_user.is_authenticated %}
                 <form action="{{ url_for('lounge') }}" method="POST">
                     {{ form.hidden_tag() }}
-                    <div class="input-group">
-                        {{ form.message(class="form-control", rows=1, placeholder="Write a message or ask a question...") }}
-                        <button type="submit" class="btn btn-primary-clean px-4">Send</button>
+                    <div class="mb-3">
+                        {{ form.category.label(class="form-label fw-bold small text-muted") }}
+                        {{ form.category(class="form-select rounded-3") }}
                     </div>
+                    <div class="mb-3">
+                        {{ form.message.label(class="form-label fw-bold small text-muted") }}
+                        {{ form.message(class="form-control rounded-3", rows=4, placeholder="What do you need? e.g. 'Looking for lab 3 sample output' or 'Anyone interested in teaming up for the hackathon?'") }}
+                    </div>
+                    {{ form.submit(class="btn btn-primary-gradient w-100 py-2") }}
                 </form>
             {% else %}
-                <div class="text-center py-2 text-muted small">
-                    <a href="{{ url_for('login', next=request.url) }}" class="text-primary fw-semibold text-decoration-none">Sign in</a> to post in Campus Chat.
+                <div class="text-center py-4">
+                    <i class="bi bi-chat-heart fs-2 text-primary mb-2 d-block"></i>
+                    <h6 class="fw-bold">Sign In to Post</h6>
+                    <p class="text-muted small mb-3">Join the discussion, ask doubts, and assist fellow college mates.</p>
+                    <a href="{{ url_for('login', next=request.url) }}" class="btn btn-primary-gradient btn-sm px-4">Sign In</a>
                 </div>
             {% endif %}
+
+            <hr class="my-4">
+
+            <h6 class="fw-bold mb-2 small text-uppercase text-muted">Popular Tags</h6>
+            <div class="d-flex flex-wrap gap-1">
+                <span class="badge bg-light text-dark border">#LabManuals</span>
+                <span class="badge bg-light text-dark border">#MidtermPrep</span>
+                <span class="badge bg-light text-dark border">#ProjectTeam</span>
+                <span class="badge bg-light text-dark border">#QuestionPapers</span>
+                <span class="badge bg-light text-dark border">#ClassNotes</span>
+            </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    const chatBox = document.getElementById('loungeChatBox');
-    if (chatBox) { chatBox.scrollTop = chatBox.scrollHeight; }
-</script>
 {% endblock %}
