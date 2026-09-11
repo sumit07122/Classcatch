@@ -44,12 +44,12 @@
                     <div class="p-3 rounded-3 bg-light border">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge rounded-circle bg-primary text-white p-2" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;">
-                                    {{ msg.author.name[0]|upper }}
+                                <span class="badge rounded-circle {% if msg.is_anonymous %}bg-dark{% else %}bg-primary{% endif %} text-white p-2" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                                    {% if msg.is_anonymous %}🎭{% else %}{{ msg.author.name[0]|upper }}{% endif %}
                                 </span>
                                 <div>
-                                    <div class="fw-bold small">{{ msg.author.name }}</div>
-                                    <div class="text-muted" style="font-size: 0.7rem;">{{ msg.author.role|capitalize }}</div>
+                                    <div class="fw-bold small">{% if msg.is_anonymous %}🎭 Anonymous Student{% else %}{{ msg.author.name }}{% endif %}</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">{% if msg.is_anonymous %}Hidden Identity{% else %}{{ msg.author.role|capitalize }}{% endif %}</div>
                                 </div>
                             </div>
                             <div class="d-flex align-items-center gap-2">
@@ -86,7 +86,15 @@
                     </div>
                     <div class="mb-3">
                         {{ form.message.label(class="form-label fw-bold small text-muted") }}
-                        {{ form.message(class="form-control rounded-3", rows=4, placeholder="What do you need? e.g. 'Looking for lab 3 sample output' or 'Anyone interested in teaming up for the hackathon?'") }}
+                        {{ form.message(class="form-control rounded-3", rows=4, placeholder="What do you need? e.g. 'Looking for lab 3 sample output' or 'Anyone having trouble understanding dynamic programming?'") }}
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            {{ form.is_anonymous(class="form-check-input", id="loungeAnonCheck") }}
+                            <label class="form-check-label small text-muted" for="loungeAnonCheck">
+                                🎭 Post Anonymously (Ask doubts with zero embarrassment)
+                            </label>
+                        </div>
                     </div>
                     {{ form.submit(class="btn btn-primary-gradient w-100 py-2") }}
                 </form>

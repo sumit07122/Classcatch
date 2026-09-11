@@ -95,9 +95,15 @@
                         <span class="text-muted small">{{ today_day_name }} &middot; Timetable & Rooms</span>
                     </div>
                 </div>
-                <span class="badge bg-success-subtle text-success fw-bold px-3 py-1">
-                    <i class="bi bi-broadcast me-1"></i> Live Rooms
-                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 d-flex align-items-center gap-1 shadow-xs" onclick="fetchMorningDispatch()" title="View simulated daily morning WhatsApp dispatch">
+                        <i class="bi bi-whatsapp text-success"></i>
+                        <span class="small fw-semibold">Morning Briefing</span>
+                    </button>
+                    <span class="badge bg-success-subtle text-success fw-bold px-2 py-1">
+                        <i class="bi bi-broadcast me-1"></i> Live
+                    </span>
+                </div>
             </div>
 
             <div class="d-flex flex-column gap-2">
@@ -329,4 +335,68 @@
         </div>
     </div>
 </div>
+
+<!-- Morning WhatsApp / Telegram Dispatch Modal -->
+<div class="modal fade" id="morningDispatchModal" tabindex="-1" aria-labelledby="dispatchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header bg-success-subtle text-success border-0 py-3">
+                <h5 class="modal-title fw-bold" id="dispatchModalLabel">
+                    <i class="bi bi-whatsapp me-2"></i> Daily Morning Student Briefing
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="small text-muted mb-2">Simulated 7:30 AM WhatsApp / Telegram automated alert tailored to your schedule and attendance health:</p>
+                <div class="p-3 bg-dark text-white rounded-3 font-monospace small" style="white-space: pre-wrap;" id="dispatchContentBox">
+                    Loading your daily briefing...
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="copyDispatchText()">
+                    <i class="bi bi-clipboard me-1"></i> Copy Briefing Text
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentDispatchText = "";
+
+    async function fetchMorningDispatch() {
+        const modal = new bootstrap.Modal(document.getElementById('morningDispatchModal'));
+        const box = document.getElementById('dispatchContentBox');
+        box.textContent = "Fetching today's schedule and attendance calculations...";
+        modal.show();
+
+        try {
+            const resp = await fetch('/api/morning-dispatch');
+            if (resp.status === 401 || resp.redirected) {
+                box.textContent = "Please sign in to generate your personalized morning briefing.";
+                return;
+            }
+            const data = await resp.json();
+            if (data.success && data.dispatch) {
+                currentDispatchText = data.dispatch;
+                box.textContent = data.dispatch;
+            } else {
+                box.textContent = "Could not generate briefing: " + (data.error || "Unknown issue");
+            }
+        } catch (err) {
+            console.error(err);
+            box.textContent = "Failed to load morning briefing.";
+        }
+    }
+
+    function copyDispatchText() {
+        if (!currentDispatchText) return;
+        navigator.clipboard.writeText(currentDispatchText).then(() => {
+            alert("✅ Morning briefing copied to clipboard! You can paste this directly into WhatsApp or Telegram.");
+        });
+    }
+</script>
 {% endblock %}

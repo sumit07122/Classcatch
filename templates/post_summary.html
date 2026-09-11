@@ -48,7 +48,11 @@
                         {{ form.content.label(class="form-label fw-bold small text-muted mb-0") }}
                         
                         <!-- Quick Format & AI Helpers -->
-                        <div class="d-flex align-items-center gap-1">
+                        <div class="d-flex align-items-center gap-1 flex-wrap">
+                            <input type="file" id="whiteboardFileInput" accept="image/*" class="d-none" onchange="uploadWhiteboardScan(this)">
+                            <button type="button" id="btnScanBoard" class="btn btn-sm btn-outline-dark py-0 px-2 small" onclick="document.getElementById('whiteboardFileInput').click()">
+                                <i class="bi bi-camera me-1 text-primary"></i> 📸 Scan Blackboard Photo
+                            </button>
                             <button type="button" class="btn btn-sm btn-light border py-0 px-2 small" onclick="applyTemplate('theory')">
                                 📝 Theory Template
                             </button>
@@ -162,6 +166,42 @@
         } finally {
             btn.innerHTML = originalText;
             btn.disabled = false;
+        }
+    }
+
+    async function uploadWhiteboardScan(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const btn = document.getElementById('btnScanBoard');
+        const originalText = btn.innerHTML;
+
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Processing Image...`;
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('course', (topicInput && topicInput.value.trim()) || 'Class Lecture Board');
+
+        try {
+            const resp = await fetch('/api/scan-whiteboard', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            if (data.success && data.text) {
+                contentArea.value = data.text;
+                updateWordCount();
+                alert("✨ Whiteboard OCR Scan complete! Formatted lecture points loaded into editor.");
+            } else {
+                alert("Could not process image: " + (data.message || "Unknown error"));
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error communicating with whiteboard scanning engine.");
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            input.value = '';
         }
     }
 </script>

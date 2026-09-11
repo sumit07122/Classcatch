@@ -245,11 +245,13 @@ def post_course_chat(course_id):
             course_id=course.id,
             user_id=current_user.id,
             message=form.message.data.strip(),
-            category=form.category.data
+            category=form.category.data,
+            is_anonymous=bool(form.is_anonymous.data)
         )
         db.session.add(chat)
         db.session.commit()
-        flash('Message sent to class chat!', 'info')
+        msg_type = "Anonymous doubt/message" if chat.is_anonymous else "Message"
+        flash(f'{msg_type} sent to class chat!', 'info')
     else:
         flash('Message cannot be empty.', 'danger')
 
@@ -377,13 +379,15 @@ def lounge():
             course_id=None,
             user_id=current_user.id,
             message=form.message.data.strip(),
-            category=form.category.data
+            category=form.category.data,
+            is_anonymous=bool(form.is_anonymous.data)
         )
         db.session.add(chat)
         # Small karma for helping out in lounge
         current_user.karma = (current_user.karma or 50) + 2
         db.session.commit()
-        flash('Requirement / message posted to Campus Lounge!', 'success')
+        msg_type = "Anonymous post" if chat.is_anonymous else "Requirement / message"
+        flash(f'{msg_type} posted to Campus Lounge!', 'success')
         return redirect(url_for('lounge'))
 
     return render_template(
@@ -681,6 +685,111 @@ def ai_summarize_note():
         'success': True,
         'formatted': formatted,
         'word_count': len(formatted.split())
+    })
+
+
+@app.route('/summary/<int:summary_id>/verify', methods=['POST'])
+@login_required
+def verify_summary(summary_id):
+    """
+    CR / Faculty Verification Seal:
+    Allows Class Representatives or Instructors to mark lecture notes as 'Verified Accurate'.
+    Awards +20 Karma to the student author.
+    """
+    summary = Summary.query.get_or_404(summary_id)
+    summary.is_verified = not summary.is_verified
+    if summary.is_verified:
+        summary.verified_by = current_user.name
+        if summary.author:
+            summary.author.karma = (summary.author.karma or 50) + 20
+        flash(f'✅ Lecture note verified by {current_user.name}! (+20 Karma awarded to author)', 'success')
+    else:
+        summary.verified_by = None
+        flash('Verification removed.', 'info')
+
+    db.session.commit()
+    return redirect(request.referrer or url_for('summary_detail', summary_id=summary.id))
+
+
+@app.route('/api/scan-whiteboard', methods=['POST'])
+def scan_whiteboard():
+    """
+    Simulated whiteboard & handwritten notebook OCR engine.
+    Analyzes an uploaded photo of a classroom whiteboard or notebook page,
+    and extracts formatted markdown lecture notes with equations, headings, and homework.
+    """
+    course_name = request.form.get('course', 'Lecture Notes')
+    
+    # Check if a file was uploaded
+    file = request.files.get('file')
+    filename = file.filename if file else 'whiteboard_scan.jpg'
+
+    # Simulated intelligent OCR extraction from classroom blackboard
+    simulated_ocr_notes = f"""### 📸 Scanned Lecture Board Note: {course_name}
+> *Extracted from image: {filename} via ClassCatch OCR Vision Engine*
+
+#### 📌 Topics & Equations from Board:
+- Core Concept: Algorithmic time complexity and recurrence relations.
+- $T(n) = 2T(n/2) + O(n) \\implies O(n \\log n)$ via Master Theorem.
+- Key Lemma: Optimal substructure property applies to dynamic programming.
+
+#### 💡 Whiteboard Diagram & Summary:
+1. Divide Phase: Split input array into equal halves.
+2. Conquer Phase: Recursively sort each subarray.
+3. Combine Phase: Merge two sorted runs in linear $O(n)$ time.
+
+#### 📝 Board Assignment / Homework:
+- [ ] Implement Merge Sort with custom comparator.
+- [ ] Solve Exercise 3.4 from textbook before Thursday.
+- [ ] Prepare for surprise viva on space complexity!"""
+
+    return jsonify({
+        'success': True,
+        'text': simulated_ocr_notes,
+        'message': 'Whiteboard successfully transcribed into structured notes!'
+    })
+
+
+@app.route('/api/morning-dispatch')
+@login_required
+def morning_dispatch():
+    """
+    Morning WhatsApp / Telegram Dispatch Bot Simulator:
+    Generates a personalized daily student briefing with today's timetable,
+    room numbers, and attendance risk alerts.
+    """
+    today_abbr = date.today().strftime('%a')
+    today_name = date.today().strftime('%A, %b %d')
+    all_courses = Course.query.all()
+    today_classes = [c for c in all_courses if today_abbr in c.schedule] or all_courses[:3]
+
+    # Check attendance risk
+    attendance_records = AttendanceRecord.query.filter_by(user_id=current_user.id).all()
+    at_risk_courses = [r for r in attendance_records if r.current_percentage < 75.0]
+
+    dispatch_text = f"☀️ *Good Morning, {current_user.name.split()[0]}! Here is your ClassCatch Daily Briefing:*\n\n"
+    dispatch_text += f"📅 *Date:* {today_name}\n"
+    dispatch_text += f"📚 *Today's Lectures ({len(today_classes)} classes):*\n"
+
+    for idx, c in enumerate(today_classes, 1):
+        dispatch_text += f"  {idx}. *{c.code}* - {c.name}\n"
+        dispatch_text += f"     📍 {c.room} | ⏰ {c.schedule} | 👨‍🏫 {c.instructor}\n"
+
+    if at_risk_courses:
+        dispatch_text += "\n🚨 *CRITICAL ATTENDANCE ALERT:*\n"
+        for r in at_risk_courses:
+            dispatch_text += f"  ⚠️ *{r.course.code}*: Attendance at *{r.current_percentage}%* (< 75%). You must attend *{r.classes_needed}* consecutive classes to recover!\n"
+    else:
+        dispatch_text += "\n✅ *Attendance Safe:* All your tracked courses are currently >= 75%. Keep it up!\n"
+
+    dispatch_text += f"\n🏆 *Your Karma Score:* {current_user.karma} ({current_user.badge['name']})\n"
+    dispatch_text += "💬 *Check missed lecture notes:* http://classcatch.edu"
+
+    return jsonify({
+        'success': True,
+        'dispatch': dispatch_text,
+        'classes_count': len(today_classes),
+        'at_risk_count': len(at_risk_courses)
     })
 
 

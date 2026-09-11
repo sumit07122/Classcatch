@@ -18,6 +18,13 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
+    <!-- Progressive Web App (PWA) Manifest & Icons -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#4361ee">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/8074/8074800.png">
+
     <!-- Custom Modern Styling -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -81,6 +88,12 @@
 
                 <!-- Action & User Auth Controls -->
                 <div class="d-flex align-items-center gap-2">
+                    <!-- PWA Install Button -->
+                    <button id="pwaInstallBtn" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 d-none align-items-center gap-1 shadow-xs" title="Install ClassCatch App on Phone / Desktop">
+                        <i class="bi bi-phone"></i>
+                        <span class="small fw-bold">Install App</span>
+                    </button>
+
                     {% if current_user.is_authenticated %}
                         <!-- Student Karma Badge -->
                         <div class="d-none d-md-flex align-items-center gap-1 bg-white border rounded-pill px-3 py-1 shadow-xs" title="{{ current_user.badge.name }}">
@@ -170,6 +183,44 @@
 
     <!-- Bootstrap 5.3 JS Bundle CDN -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    <!-- Progressive Web App (PWA) Registration & Install Prompt -->
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register("{{ url_for('static', filename='sw.js') }}")
+                    .then((reg) => console.log('[PWA] Service Worker registered with scope:', reg.scope))
+                    .catch((err) => console.log('[PWA] Service Worker registration failed:', err));
+            });
+        }
+
+        // PWA Install Prompt Handler
+        let deferredPrompt;
+        const installBtn = document.getElementById('pwaInstallBtn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            deferredPrompt = e;
+            if (installBtn) {
+                installBtn.classList.remove('d-none');
+                installBtn.classList.add('d-inline-flex');
+            }
+        });
+
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`[PWA] User response to install prompt: ${outcome}`);
+                    deferredPrompt = null;
+                    installBtn.classList.add('d-none');
+                }
+            });
+        }
+    </script>
 
     {% block scripts %}{% endblock %}
 </body>

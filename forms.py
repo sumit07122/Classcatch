@@ -82,6 +82,7 @@ class ChatMessageForm(FlaskForm):
         ('Doubt', '❓ Question / Doubt'),
         ('Notes Request', '📄 Notes Request')
     ], default='General')
+    is_anonymous = BooleanField('Ask Anonymously 🎭')
     submit = SubmitField('Send Message')
 
 

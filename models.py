@@ -100,6 +100,8 @@ class Summary(db.Model):
     category = db.Column(db.String(50), default='Lecture Notes', nullable=False)  # Lecture Notes, Assignment, Exam Prep
     content = db.Column(db.Text, nullable=False)
     helpful_count = db.Column(db.Integer, default=0, nullable=False)
+    is_verified = db.Column(db.Boolean, default=False, nullable=False)
+    verified_by = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     def __repr__(self):
@@ -110,6 +112,7 @@ class ChatMessage(db.Model):
     """
     Peer-to-peer unofficial discussion / requirement exchange message.
     Can be tied to a specific course, or course_id=None for the general campus lounge.
+    Supports anonymous mode for honest doubt clearing.
     """
     __tablename__ = 'chat_messages'
 
@@ -118,6 +121,7 @@ class ChatMessage(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     message = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(40), default='General', nullable=False)  # Requirement, Doubt, General, Notes Request
+    is_anonymous = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     def __repr__(self):
