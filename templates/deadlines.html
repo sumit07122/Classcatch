@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Page Header & Action Bar -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small text-muted mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Deadlines</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold text-dark mb-1">
+                <i class="bi bi-alarm-fill text-danger me-2"></i> Academic Deadlines & Exam Countdown
+            </h2>
+            <p class="text-muted small mb-0">Collaborative deadline board: track assignments, viva presentations, quizzes, and midterms.</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('new_deadline') }}" class="btn btn-primary-gradient px-4 py-2 d-flex align-items-center gap-2">
+                <i class="bi bi-plus-circle-fill"></i>
+                <span>Add Deadline (+10 Karma)</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Category Filters & Course Filter -->
+    <div class="card card-modern p-3 mb-4 bg-white shadow-sm border-0">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <!-- Category Pills -->
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('deadlines_list', category='All', course_id=selected_course_id) }}" 
+                   class="btn btn-sm {% if filter_cat == 'All' %}btn-primary{% else %}btn-light border{% endif %} rounded-pill px-3">
+                    All Deadlines
+                </a>
+                <a href="{{ url_for('deadlines_list', category='Assignment', course_id=selected_course_id) }}" 
+                   class="btn btn-sm {% if filter_cat == 'Assignment' %}btn-primary{% else %}btn-light border{% endif %} rounded-pill px-3">
+                    📋 Assignments
+                </a>
+                <a href="{{ url_for('deadlines_list', category='Quiz / Exam', course_id=selected_course_id) }}" 
+                   class="btn btn-sm {% if filter_cat == 'Quiz / Exam' %}btn-primary{% else %}btn-light border{% endif %} rounded-pill px-3">
+                    🎯 Exams & Quizzes
+                </a>
+                <a href="{{ url_for('deadlines_list', category='Lab Submission', course_id=selected_course_id) }}" 
+                   class="btn btn-sm {% if filter_cat == 'Lab Submission' %}btn-primary{% else %}btn-light border{% endif %} rounded-pill px-3">
+                    🧪 Lab Reports & Code
+                </a>
+            </div>
+
+            <!-- Course Filter -->
+            <div class="d-flex align-items-center gap-2">
+                <span class="small text-muted text-nowrap">Filter by Course:</span>
+                <select class="form-select form-select-sm" style="min-width: 180px;" onchange="location = this.value;">
+                    <option value="{{ url_for('deadlines_list', category=filter_cat) }}">All Subjects</option>
+                    {% for c in courses %}
+                        <option value="{{ url_for('deadlines_list', category=filter_cat, course_id=c.id) }}" 
+                                {% if selected_course_id == c.id %}selected{% endif %}>
+                            {{ c.code }} - {{ c.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deadlines List Grid -->
+    <div class="row g-3">
+        {% for d in deadlines %}
+            <div class="col-lg-6">
+                <div class="card card-modern p-4 h-100 position-relative {% if d.is_completed %}opacity-75 bg-light{% elif d.is_urgent %}border-start border-4 border-danger{% elif d.priority == 'High' %}border-start border-4 border-warning{% else %}border-start border-4 border-primary{% endif %}">
+                    
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge bg-light text-dark border fw-bold">{{ d.course.code }}</span>
+                            <span class="badge bg-secondary-subtle text-secondary fw-semibold">{{ d.category }}</span>
+                            {% if d.priority == 'High' %}
+                                <span class="badge bg-danger-subtle text-danger fw-bold"><i class="bi bi-fire me-1"></i> High Priority</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Days Countdown Pill -->
+                        <div>
+                            {% if d.is_completed %}
+                                <span class="badge bg-success-subtle text-success fw-bold px-3 py-1">
+                                    <i class="bi bi-check-circle me-1"></i> Completed
+                                </span>
+                            {% elif d.is_overdue %}
+                                <span class="badge bg-danger text-white fw-bold px-3 py-1">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Overdue ({{ d.days_remaining|abs }}d ago)
+                                </span>
+                            {% elif d.days_remaining == 0 %}
+                                <span class="badge bg-danger text-white fw-bold px-3 py-1 animate-pulse">
+                                    <i class="bi bi-alarm me-1"></i> DUE TODAY!
+                                </span>
+                            {% elif d.days_remaining == 1 %}
+                                <span class="badge bg-warning text-dark fw-bold px-3 py-1">
+                                    <i class="bi bi-clock me-1"></i> Due Tomorrow
+                                </span>
+                            {% else %}
+                                <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-1">
+                                    <i class="bi bi-hourglass-split me-1"></i> In {{ d.days_remaining }} days
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold mb-2 {% if d.is_completed %}text-decoration-line-through text-muted{% else %}text-dark{% endif %}">
+                        {{ d.title }}
+                    </h5>
+
+                    {% if d.description %}
+                        <p class="text-muted small mb-3" style="white-space: pre-wrap;">{{ d.description }}</p>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-auto small">
+                        <div class="text-muted">
+                            <i class="bi bi-calendar-event me-1"></i> Target Date: <strong>{{ d.due_date.strftime('%b %d, %Y (%a)') }}</strong>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-2">
+                            {% if current_user.is_authenticated %}
+                                <form action="{{ url_for('toggle_deadline', deadline_id=d.id) }}" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-sm {% if d.is_completed %}btn-outline-secondary{% else %}btn-outline-success{% endif %} py-1 px-2">
+                                        <i class="bi {% if d.is_completed %}bi-arrow-counterclockwise{% else %}bi-check2{% endif %} me-1"></i>
+                                        {% if d.is_completed %}Undo{% else %}Mark Done{% endif %}
+                                    </button>
+                                </form>
+                                {% if d.user_id == current_user.id or current_user.role == 'admin' %}
+                                    <form action="{{ url_for('delete_deadline', deadline_id=d.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this deadline?');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="col-12">
+                <div class="card card-modern p-5 text-center bg-white shadow-sm border-0">
+                    <i class="bi bi-calendar2-check fs-1 text-success opacity-75 mb-3"></i>
+                    <h5 class="fw-bold text-dark">No upcoming deadlines found!</h5>
+                    <p class="text-muted small mb-3">You're completely caught up, or no peer has posted deadlines for this filter yet.</p>
+                    <a href="{{ url_for('new_deadline') }}" class="btn btn-primary-gradient px-4 py-2 align-self-center">
+                        <i class="bi bi-plus-circle me-1"></i> Add the First Deadline
+                    </a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}

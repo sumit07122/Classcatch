@@ -128,3 +128,57 @@ class AttendanceForm(FlaskForm):
         if self.total_classes.data is not None and field.data is not None:
             if field.data > self.total_classes.data:
                 raise ValidationError("Classes attended cannot be greater than total classes held.")
+
+
+class DeadlineForm(FlaskForm):
+    """Form for adding academic deadlines and exam countdowns."""
+    course_id = SelectField('Course', coerce=int, validators=[
+        DataRequired(message="Please select a course.")
+    ])
+    title = StringField('Deadline Title', validators=[
+        DataRequired(message="Please enter a title for this deadline."),
+        Length(max=150, message="Title cannot exceed 150 characters.")
+    ])
+    due_date = DateField('Due Date', default=date.today, validators=[
+        DataRequired(message="Please specify the due date.")
+    ])
+    category = SelectField('Type', choices=[
+        ('Assignment', '📋 Assignment / Homework'),
+        ('Quiz / Exam', '🎯 Quiz / Midterm / Endterm'),
+        ('Lab Submission', '🧪 Lab Experiment / Code Repo'),
+        ('Project Milestone', '🚀 Project Phase / Presentation')
+    ], default='Assignment')
+    priority = SelectField('Priority', choices=[
+        ('Normal', '🟢 Normal'),
+        ('Medium', '🟡 Medium Priority'),
+        ('High', '🔴 High / Critical')
+    ], default='Normal')
+    description = TextAreaField('Additional Instructions / Submission Portal', validators=[
+        Optional()
+    ])
+    submit = SubmitField('Add Deadline')
+
+
+class ResourceForm(FlaskForm):
+    """Form for sharing academic PYQs, cheat sheets, and lab guides."""
+    course_id = SelectField('Course', coerce=int, validators=[
+        DataRequired(message="Please select a course.")
+    ])
+    title = StringField('Resource Title', validators=[
+        DataRequired(message="Please enter a title for the resource."),
+        Length(max=150, message="Title cannot exceed 150 characters.")
+    ])
+    category = SelectField('Category', choices=[
+        ('PYQ & Solutions', '📚 Previous Year Questions (PYQs) & Solutions'),
+        ('Formula Cheat Sheet', '⚡ Formula Sheet & Quick Revision Map'),
+        ('Lab Manual & Codes', '🧪 Lab Manual, Viva Questions & Code'),
+        ('Handwritten Notes', '✍️ Handwritten Class Notes (Clean Scan)'),
+        ('Syllabus & Slides', '📊 Official Syllabus & Professor Slides')
+    ], default='PYQ & Solutions')
+    resource_url = StringField('Resource Link (Google Drive / GitHub / PDF URL)', validators=[
+        DataRequired(message="Please provide a valid link to the resource.")
+    ])
+    description = TextAreaField('Description / What makes this helpful', validators=[
+        Optional()
+    ])
+    submit = SubmitField('Share Resource (+10 Karma)')

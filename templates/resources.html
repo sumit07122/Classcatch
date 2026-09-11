@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Page Header & Action Bar -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small text-muted mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Resource Vault</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold text-dark mb-1">
+                <i class="bi bi-file-earmark-text-fill text-primary me-2"></i> Academic Vault & PYQs
+            </h2>
+            <p class="text-muted small mb-0">Previous year question papers, formula sheets, lab manuals, and peer-shared revision notes.</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('new_resource') }}" class="btn btn-primary-gradient px-4 py-2 d-flex align-items-center gap-2">
+                <i class="bi bi-cloud-arrow-up-fill"></i>
+                <span>Share Study Material (+10 Karma)</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="card card-modern p-3 mb-4 bg-white shadow-sm border-0">
+        <form method="GET" action="{{ url_for('resources_list') }}">
+            <div class="row g-3 align-items-center">
+                <div class="col-lg-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="Search PYQs, formula sheets, topics..." value="{{ search_query }}">
+                    </div>
+                </div>
+
+                <div class="col-md-4 col-lg-4">
+                    <select name="course_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Subjects</option>
+                        {% for c in courses %}
+                            <option value="{{ c.id }}" {% if selected_course_id == c.id %}selected{% endif %}>
+                                {{ c.code }} - {{ c.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3 col-lg-3">
+                    <select name="category" class="form-select" onchange="this.form.submit()">
+                        <option value="All" {% if category_filter == 'All' %}selected{% endif %}>All Resource Types</option>
+                        <option value="PYQ & Solutions" {% if category_filter == 'PYQ & Solutions' %}selected{% endif %}>📚 PYQ & Solutions</option>
+                        <option value="Formula Cheat Sheet" {% if category_filter == 'Formula Cheat Sheet' %}selected{% endif %}>⚡ Formula Cheat Sheets</option>
+                        <option value="Lab Manual & Codes" {% if category_filter == 'Lab Manual & Codes' %}selected{% endif %}>🧪 Lab Manuals & Codes</option>
+                        <option value="Handwritten Notes" {% if category_filter == 'Handwritten Notes' %}selected{% endif %}>✍️ Handwritten Notes</option>
+                        <option value="Syllabus & Slides" {% if category_filter == 'Syllabus & Slides' %}selected{% endif %}>📊 Syllabus & Slides</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Resources Cards Grid -->
+    <div class="row g-3">
+        {% for r in resources %}
+            <div class="col-lg-6">
+                <div class="card card-modern p-4 h-100 bg-white shadow-sm border-0 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge bg-light text-dark border fw-bold">{{ r.course.code }}</span>
+                            <span class="badge bg-primary-subtle text-primary fw-semibold">{{ r.category }}</span>
+                        </div>
+                        <span class="text-muted small">{{ r.created_at.strftime('%b %d, %Y') }}</span>
+                    </div>
+
+                    <h5 class="fw-bold text-dark mb-2">{{ r.title }}</h5>
+
+                    {% if r.description %}
+                        <p class="text-muted small mb-3">{{ r.description }}</p>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-auto">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="avatar-sm rounded-circle bg-light border text-primary fw-bold d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; font-size: 0.75rem;">
+                                {{ r.author.name[0]|upper }}
+                            </div>
+                            <span class="small text-muted">{{ r.author.name }}</span>
+                            <span class="badge bg-light text-warning border px-1" style="font-size: 0.7rem;"><i class="fa-solid {{ r.author.badge.icon }}"></i></span>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- Helpful Upvote Form -->
+                            <form action="{{ url_for('mark_resource_helpful', resource_id=r.id) }}" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary py-1 px-2" title="Mark as helpful (+5 Karma to author)">
+                                    <i class="bi bi-hand-thumbs-up me-1 text-primary"></i>
+                                    <span class="fw-bold">{{ r.helpful_count }}</span>
+                                </button>
+                            </form>
+
+                            <!-- Direct Link Button -->
+                            <a href="{{ r.resource_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary-gradient px-3 py-1 d-flex align-items-center gap-1">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                                <span>Open Vault Item</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="col-12">
+                <div class="card card-modern p-5 text-center bg-white shadow-sm border-0">
+                    <i class="bi bi-folder-x fs-1 text-muted opacity-50 mb-3"></i>
+                    <h5 class="fw-bold text-dark">No academic resources found</h5>
+                    <p class="text-muted small mb-3">Be the hero of your semester! Upload or link past year questions, lab solutions, or formula cheat-sheets.</p>
+                    <a href="{{ url_for('new_resource') }}" class="btn btn-primary-gradient px-4 py-2 align-self-center">
+                        <i class="bi bi-cloud-arrow-up-fill me-1"></i> Upload First Resource (+10 Karma)
+                    </a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}

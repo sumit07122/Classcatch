@@ -88,6 +88,26 @@ def test_classcatch():
     assert helpful_res.status_code == 200
     print("   [+] POST /summary/1/helpful -> Success")
 
+    # Test Deadlines & Resources routes
+    deadlines_res = client.get('/deadlines')
+    assert deadlines_res.status_code == 200
+    assert b"Academic Deadlines" in deadlines_res.data
+    print("   [+] GET /deadlines -> 200 OK")
+
+    resources_res = client.get('/resources')
+    assert resources_res.status_code == 200
+    assert b"Academic Vault" in resources_res.data
+    print("   [+] GET /resources -> 200 OK")
+
+    # Test AI Summarize endpoint
+    ai_res = client.post('/api/ai-summarize', json={
+        'text': 'Covered B+ trees and indexing.\nHW: solve problem 4.2\nImp: guaranteed 10 mark question in midterms',
+        'topic': 'Database Indexing'
+    })
+    assert ai_res.status_code == 200
+    assert b"Core Topic: Database Indexing" in ai_res.data
+    print("   [+] POST /api/ai-summarize -> 200 OK & formatted markdown")
+
     # Test Attendance Math
     with app.app_context():
         rec = AttendanceRecord.query.first()

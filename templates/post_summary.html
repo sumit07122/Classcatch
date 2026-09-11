@@ -44,13 +44,32 @@
                 </div>
 
                 <div class="mb-4">
-                    {{ form.content.label(class="form-label fw-bold small text-muted") }}
-                    {{ form.content(class="form-control rounded-3", rows=7, placeholder="1. What was taught: Key definitions, theorem or slides covered...\n2. Assignments / Homework: Questions assigned, deadline...\n3. Announcements: Midterm dates, quiz alerts, next class prep...") }}
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                        {{ form.content.label(class="form-label fw-bold small text-muted mb-0") }}
+                        
+                        <!-- Quick Format & AI Helpers -->
+                        <div class="d-flex align-items-center gap-1">
+                            <button type="button" class="btn btn-sm btn-light border py-0 px-2 small" onclick="applyTemplate('theory')">
+                                📝 Theory Template
+                            </button>
+                            <button type="button" class="btn btn-sm btn-light border py-0 px-2 small" onclick="applyTemplate('lab')">
+                                🧪 Lab Template
+                            </button>
+                            <button type="button" id="btnAiFormat" class="btn btn-sm btn-primary-gradient py-0 px-2 small" onclick="runAiBeautifier()">
+                                <i class="bi bi-stars me-1"></i> ✨ AI Auto-Structure
+                            </button>
+                        </div>
+                    </div>
+
+                    {{ form.content(class="form-control rounded-3 font-monospace", rows=9, id="summaryContent", placeholder="Type or paste your rough class notes, formulas, homework, or key exam points here...") }}
                     {% if form.content.errors %}
                         <div class="text-danger small mt-1">{{ form.content.errors[0] }}</div>
                     {% endif %}
-                    <div class="form-text small text-muted">
-                        <i class="bi bi-info-circle me-1"></i> Tip: Use numbered bullets or headers to make your notes easy to scan!
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <span class="small text-muted">
+                            <i class="bi bi-info-circle me-1"></i> Earn <strong>+15 Karma</strong> for posting helpful catch-up notes.
+                        </span>
+                        <span id="wordCountBadge" class="small text-muted">0 words</span>
                     </div>
                 </div>
 
@@ -62,4 +81,88 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const contentArea = document.getElementById('summaryContent');
+    const topicInput = document.getElementById('topic');
+    const wordCountBadge = document.getElementById('wordCountBadge');
+
+    function updateWordCount() {
+        const text = contentArea.value.trim();
+        const count = text ? text.split(/\s+/).length : 0;
+        wordCountBadge.textContent = `${count} words`;
+    }
+
+    if (contentArea) {
+        contentArea.addEventListener('input', updateWordCount);
+    }
+
+    function applyTemplate(type) {
+        if (type === 'theory') {
+            contentArea.value = `### 📌 Core Topic & Key Concepts:
+- Definition & theoretical background:
+- 3 Key properties or rules discussed:
+- Example solved on the whiteboard:
+
+### 📝 Homework & Exercises Given:
+- [ ] Practice questions from textbook:
+- [ ] Submit before next lecture
+
+### ⚠️ Teacher's Exam Tips & Announcements:
+> Crucial formula / theorem to remember for the upcoming quiz.`;
+        } else if (type === 'lab') {
+            contentArea.value = `### 🧪 Lab Experiment & Problem Statement:
+- Objective:
+- Algorithm / Logic used:
+
+### 💻 Code Snippet / Implementation:
+\`\`\`cpp
+// Key logic / algorithm core
+\`\`\`
+
+### 📝 Lab Output & Submission Instructions:
+- Due date on GitHub / Google Classroom:
+- Viva questions asked by the lab instructor:`;
+        }
+        updateWordCount();
+    }
+
+    async function runAiBeautifier() {
+        const text = contentArea.value.trim();
+        const topic = (topicInput && topicInput.value.trim()) || 'Class Catch-up';
+        const btn = document.getElementById('btnAiFormat');
+
+        if (!text) {
+            alert("Please enter some rough notes or bullet points first, then click AI Auto-Structure.");
+            return;
+        }
+
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Formatting...`;
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch('/api/ai-summarize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, topic: topic })
+            });
+            const data = await resp.json();
+            if (data.success && data.formatted) {
+                contentArea.value = data.formatted;
+                updateWordCount();
+            } else {
+                alert("Could not format note: " + (data.error || "Unknown issue"));
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Failed to connect to formatting service.");
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+</script>
 {% endblock %}

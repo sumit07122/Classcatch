@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small text-muted mb-2">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('deadlines_list') }}" class="text-decoration-none">Deadlines</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">New</li>
+                </ol>
+            </nav>
+
+            <div class="card card-modern p-4 p-md-5 bg-white shadow-sm border-0">
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="rounded-circle bg-danger-subtle text-danger d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; font-size: 1.5rem;">
+                        <i class="bi bi-alarm"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold text-dark mb-1">Add Academic Deadline or Exam Alert</h4>
+                        <p class="text-muted small mb-0">Help your classmates stay organized by logging deadlines and test dates (+10 Karma).</p>
+                    </div>
+                </div>
+
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <label class="form-label fw-bold small text-dark">{{ form.course_id.label.text }}</label>
+                            {{ form.course_id(class="form-select form-select-lg fs-6") }}
+                            {% for error in form.course_id.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-5">
+                            <label class="form-label fw-bold small text-dark">{{ form.category.label.text }}</label>
+                            {{ form.category(class="form-select form-select-lg fs-6") }}
+                            {% for error in form.category.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold small text-dark">{{ form.title.label.text }}</label>
+                            {{ form.title(class="form-control form-control-lg fs-6", placeholder="e.g. DBMS Unit 2 Assignment - SQL Normalization Questions") }}
+                            {% for error in form.title.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-dark">{{ form.due_date.label.text }}</label>
+                            {{ form.due_date(class="form-control form-control-lg fs-6", type="date") }}
+                            {% for error in form.due_date.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-dark">{{ form.priority.label.text }}</label>
+                            {{ form.priority(class="form-select form-select-lg fs-6") }}
+                            {% for error in form.priority.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold small text-dark">{{ form.description.label.text }} (Optional)</label>
+                            {{ form.description(class="form-control fs-6", rows=3, placeholder="Mention submission portal (Google Classroom, Moodle, email), formatting rules, or syllabus scope...") }}
+                            {% for error in form.description.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-12 pt-3">
+                            <button type="submit" class="btn btn-primary-gradient btn-lg w-100 fs-6 fw-bold py-3">
+                                <i class="bi bi-calendar-check me-2"></i> Publish Deadline to Calendar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

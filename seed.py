@@ -15,7 +15,7 @@ Usage:
 
 from datetime import date, timedelta
 from app import app
-from models import db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord
+from models import db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord, Deadline, Resource
 
 def seed_database():
     with app.app_context():
@@ -24,14 +24,14 @@ def seed_database():
         db.create_all()
 
         print("[*] Creating demo student accounts...")
-        # Demo Students
-        alex = User(name="Alex Rivera", email="alex@classcatch.edu", role="student")
+        # Demo Students with realistic Karma points & badges
+        alex = User(name="Alex Rivera", email="alex@classcatch.edu", role="student", karma=340)
         alex.set_password("password123")
 
-        sarah = User(name="Sarah Chen", email="sarah@classcatch.edu", role="student")
+        sarah = User(name="Sarah Chen", email="sarah@classcatch.edu", role="student", karma=195)
         sarah.set_password("password123")
 
-        david = User(name="David Sharma", email="david@classcatch.edu", role="student")
+        david = User(name="David Sharma", email="david@classcatch.edu", role="student", karma=85)
         david.set_password("password123")
 
         db.session.add_all([alex, sarah, david])
@@ -260,6 +260,88 @@ def seed_database():
             )
         ]
         db.session.add_all(attendances)
+
+        print("[*] Seeding academic deadlines & exam countdowns...")
+        deadlines = [
+            Deadline(
+                course_id=dbms.id,
+                user_id=alex.id,
+                title="ER Diagram & Relational Schema Assignment",
+                due_date=today + timedelta(days=2),
+                category="Assignment",
+                priority="High",
+                description="Submit on Moodle portal by 11:59 PM. Include normalization steps up to BCNF."
+            ),
+            Deadline(
+                course_id=os_course.id,
+                user_id=sarah.id,
+                title="Mid-Term Examination: Memory Management & Threads",
+                due_date=today + timedelta(days=5),
+                category="Quiz / Exam",
+                priority="High",
+                description="Closed-book exam in Lecture Theater 2. Syllabus: Units 1, 2, and 3."
+            ),
+            Deadline(
+                course_id=dsa.id,
+                user_id=david.id,
+                title="Graph Algorithms & Dijkstra Implementation Lab",
+                due_date=today + timedelta(days=1),
+                category="Lab Submission",
+                priority="Medium",
+                description="Push code to GitHub and submit lab report with complexity analysis."
+            ),
+            Deadline(
+                course_id=networks.id,
+                user_id=alex.id,
+                title="Wireshark Packet Analysis Project",
+                due_date=today + timedelta(days=8),
+                category="Project Milestone",
+                priority="Normal",
+                description="Capture and analyze HTTP, DNS, and TCP 3-way handshake pcap files."
+            )
+        ]
+        db.session.add_all(deadlines)
+
+        print("[*] Seeding PYQs & academic resource vault...")
+        resources = [
+            Resource(
+                course_id=dbms.id,
+                user_id=alex.id,
+                title="DBMS End-Term 2024 & 2023 Solved Question Papers",
+                category="PYQ & Solutions",
+                resource_url="https://drive.google.com/file/d/sample-dbms-pyq/view",
+                description="Complete solved papers with step-by-step SQL queries and B+ tree splitting diagrams.",
+                helpful_count=18
+            ),
+            Resource(
+                course_id=os_course.id,
+                user_id=sarah.id,
+                title="CPU Scheduling & Page Replacement Formula Sheet",
+                category="Formula Cheat Sheet",
+                resource_url="https://drive.google.com/file/d/sample-os-cheat-sheet/view",
+                description="Quick revision 2-pager for FCFS, SJF, Round Robin, LRU, and Banker's Algorithm.",
+                helpful_count=24
+            ),
+            Resource(
+                course_id=dsa.id,
+                user_id=david.id,
+                title="Data Structures Lab Manual with Clean C++ Code",
+                category="Lab Manual & Codes",
+                resource_url="https://github.com/example/dsa-lab-solutions",
+                description="Tested implementations of AVL Trees, Red-Black Trees, Graph traversals, and Heaps.",
+                helpful_count=15
+            ),
+            Resource(
+                course_id=networks.id,
+                user_id=sarah.id,
+                title="Subnetting & IP Addressing Quick Reference Map",
+                category="Handwritten Notes",
+                resource_url="https://drive.google.com/file/d/sample-subnetting-guide/view",
+                description="Clear handwritten tricks to solve CIDR subnetting questions in under 30 seconds.",
+                helpful_count=31
+            )
+        ]
+        db.session.add_all(resources)
 
         db.session.commit()
         print("[OK] Database successfully seeded with rich mock data!")

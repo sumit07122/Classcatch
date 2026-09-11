@@ -1,9 +1,12 @@
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord
-from forms import RegistrationForm, LoginForm, SummaryForm, ChatMessageForm, AnnouncementForm, AttendanceForm
+from models import db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord, Deadline, Resource
+from forms import (
+    RegistrationForm, LoginForm, SummaryForm, ChatMessageForm,
+    AnnouncementForm, AttendanceForm, DeadlineForm, ResourceForm
+)
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -25,7 +28,7 @@ login_manager.login_message_category = 'warning'
 @login_manager.user_loader
 def load_user(user_id):
     """Flask-Login user loader."""
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 @app.context_processor
@@ -108,11 +111,24 @@ def index():
     - Lists enrolled courses with summary count, chat count, and schedule status.
     - Shows today's catch-up summaries.
     - Displays urgent university/class announcements.
+    - Features Today's Schedule & What's Next Tracker.
+    - Highlights upcoming academic deadlines & exam countdowns.
     """
     courses = Course.query.order_by(Course.code).all()
     today_summaries = Summary.query.filter_by(date=date.today()).order_by(Summary.created_at.desc()).all()
     recent_summaries = Summary.query.order_by(Summary.date.desc(), Summary.created_at.desc()).limit(6).all()
     urgent_announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
+
+    # Upcoming academic deadlines & exam countdowns
+    upcoming_deadlines = Deadline.query.filter_by(is_completed=False).order_by(Deadline.due_date.asc()).limit(4).all()
+
+    # Calculate today's scheduled classes
+    today_abbr = date.today().strftime('%a')  # e.g., 'Mon', 'Wed'
+    today_day_name = date.today().strftime('%A, %b %d')
+    today_classes = [c for c in courses if today_abbr in c.schedule]
+    if not today_classes:
+        # If weekend or no match, show all active scheduled courses for quick preview
+        today_classes = courses[:3]
 
     # User attendance overview if logged in
     user_attendance = []
@@ -126,7 +142,10 @@ def index():
         today_summaries=today_summaries,
         recent_summaries=recent_summaries,
         urgent_announcements=urgent_announcements,
-        user_attendance=user_attendance
+        user_attendance=user_attendance,
+        upcoming_deadlines=upcoming_deadlines,
+        today_classes=today_classes,
+        today_day_name=today_day_name
     )
 
 
@@ -293,9 +312,11 @@ def post_summary():
             content=form.content.data.strip()
         )
         db.session.add(summary)
+        # Award karma to contributor (+15 Karma)
+        current_user.karma = (current_user.karma or 50) + 15
         db.session.commit()
 
-        flash('✅ Catch-up summary submitted successfully!', 'success')
+        flash('✅ Catch-up summary submitted successfully! (+15 Karma awarded)', 'success')
         return redirect(url_for('course_detail', course_id=summary.course_id, tab='summaries'))
 
     return render_template('post_summary.html', title='Post Class Catch-up', form=form)
@@ -310,15 +331,17 @@ def summary_detail(summary_id):
 
 @app.route('/summary/<int:summary_id>/helpful', methods=['POST'])
 def mark_helpful(summary_id):
-    """Upvote / mark a summary as helpful."""
+    """Upvote / mark a summary as helpful and award karma."""
     summary = Summary.query.get_or_404(summary_id)
     summary.helpful_count += 1
+    if summary.author:
+        summary.author.karma = (summary.author.karma or 50) + 5
     db.session.commit()
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify({'success': True, 'helpful_count': summary.helpful_count})
 
-    flash('Marked as helpful! Thank you for supporting your peer.', 'success')
+    flash('Marked as helpful! (+5 Karma awarded to peer)', 'success')
     return redirect(request.referrer or url_for('summary_detail', summary_id=summary.id))
 
 
@@ -342,6 +365,9 @@ def lounge():
 
     messages = query.order_by(ChatMessage.created_at.desc()).limit(50).all()
 
+    # Campus MVP Leaderboard
+    top_contributors = User.query.order_by(User.karma.desc()).limit(5).all()
+
     if form.validate_on_submit():
         if not current_user.is_authenticated:
             flash('Please log in to chat in the Campus Lounge.', 'warning')
@@ -354,11 +380,20 @@ def lounge():
             category=form.category.data
         )
         db.session.add(chat)
+        # Small karma for helping out in lounge
+        current_user.karma = (current_user.karma or 50) + 2
         db.session.commit()
         flash('Requirement / message posted to Campus Lounge!', 'success')
         return redirect(url_for('lounge'))
 
-    return render_template('lounge.html', title='Campus Lounge & Requirements', form=form, messages=messages, category_filter=category_filter)
+    return render_template(
+        'lounge.html',
+        title='Campus Lounge & Requirements',
+        form=form,
+        messages=messages,
+        category_filter=category_filter,
+        top_contributors=top_contributors
+    )
 
 
 # ==========================================
@@ -431,6 +466,222 @@ def delete_attendance(record_id):
     db.session.commit()
     flash('Attendance record removed.', 'info')
     return redirect(url_for('attendance_calculator'))
+
+
+# ==========================================
+# Academic Deadlines & Exam Countdown Tracker
+# ==========================================
+
+@app.route('/deadlines')
+def deadlines_list():
+    """View and filter upcoming assignments, lab viva, quizzes, and exams."""
+    filter_cat = request.args.get('category', 'All')
+    course_id = request.args.get('course_id', type=int)
+
+    query = Deadline.query
+    if filter_cat != 'All':
+        query = query.filter_by(category=filter_cat)
+    if course_id:
+        query = query.filter_by(course_id=course_id)
+
+    deadlines = query.order_by(Deadline.is_completed.asc(), Deadline.due_date.asc()).all()
+    courses = Course.query.order_by(Course.code).all()
+    return render_template(
+        'deadlines.html',
+        title='Academic Deadlines & Exam Countdown',
+        deadlines=deadlines,
+        courses=courses,
+        filter_cat=filter_cat,
+        selected_course_id=course_id
+    )
+
+
+@app.route('/deadlines/new', methods=['GET', 'POST'])
+@login_required
+def new_deadline():
+    """Add a new assignment deadline or exam date."""
+    courses = Course.query.order_by(Course.code).all()
+    form = DeadlineForm()
+    form.course_id.choices = [(c.id, f"{c.code} - {c.name}") for c in courses]
+
+    if form.validate_on_submit():
+        deadline = Deadline(
+            course_id=form.course_id.data,
+            user_id=current_user.id,
+            title=form.title.data.strip(),
+            due_date=form.due_date.data,
+            category=form.category.data,
+            priority=form.priority.data,
+            description=form.description.data.strip() if form.description.data else None
+        )
+        db.session.add(deadline)
+        current_user.karma = (current_user.karma or 50) + 10
+        db.session.commit()
+        flash('⏰ Deadline added to the calendar! (+10 Karma awarded)', 'success')
+        return redirect(url_for('deadlines_list'))
+
+    return render_template('deadline_new.html', title='Add Deadline / Exam Alert', form=form)
+
+
+@app.route('/deadlines/<int:deadline_id>/toggle', methods=['POST'])
+@login_required
+def toggle_deadline(deadline_id):
+    """Toggle deadline completed status."""
+    deadline = Deadline.query.get_or_404(deadline_id)
+    deadline.is_completed = not deadline.is_completed
+    db.session.commit()
+    status_text = "completed" if deadline.is_completed else "marked active"
+    flash(f'Deadline marked as {status_text}.', 'info')
+    return redirect(request.referrer or url_for('deadlines_list'))
+
+
+@app.route('/deadlines/<int:deadline_id>/delete', methods=['POST'])
+@login_required
+def delete_deadline(deadline_id):
+    """Delete a deadline."""
+    deadline = Deadline.query.get_or_404(deadline_id)
+    if deadline.user_id != current_user.id and current_user.role != 'admin':
+        abort(403)
+    db.session.delete(deadline)
+    db.session.commit()
+    flash('Deadline removed.', 'info')
+    return redirect(url_for('deadlines_list'))
+
+
+# ==========================================
+# PYQ & Academic Resource Vault
+# ==========================================
+
+@app.route('/resources')
+def resources_list():
+    """Browse and search past exam papers (PYQs), formula sheets, and lab guides."""
+    category_filter = request.args.get('category', 'All')
+    course_id = request.args.get('course_id', type=int)
+    search_query = request.args.get('q', '').strip()
+
+    query = Resource.query
+    if category_filter != 'All':
+        query = query.filter_by(category=category_filter)
+    if course_id:
+        query = query.filter_by(course_id=course_id)
+    if search_query:
+        query = query.filter(
+            (Resource.title.ilike(f"%{search_query}%")) |
+            (Resource.description.ilike(f"%{search_query}%"))
+        )
+
+    resources = query.order_by(Resource.helpful_count.desc(), Resource.created_at.desc()).all()
+    courses = Course.query.order_by(Course.code).all()
+    return render_template(
+        'resources.html',
+        title='Academic Vault - PYQs & Formula Sheets',
+        resources=resources,
+        courses=courses,
+        category_filter=category_filter,
+        selected_course_id=course_id,
+        search_query=search_query
+    )
+
+
+@app.route('/resources/new', methods=['GET', 'POST'])
+@login_required
+def new_resource():
+    """Publish a study material or PYQ link."""
+    courses = Course.query.order_by(Course.code).all()
+    form = ResourceForm()
+    form.course_id.choices = [(c.id, f"{c.code} - {c.name}") for c in courses]
+
+    if form.validate_on_submit():
+        resource = Resource(
+            course_id=form.course_id.data,
+            user_id=current_user.id,
+            title=form.title.data.strip(),
+            category=form.category.data,
+            resource_url=form.resource_url.data.strip(),
+            description=form.description.data.strip() if form.description.data else None
+        )
+        db.session.add(resource)
+        current_user.karma = (current_user.karma or 50) + 10
+        db.session.commit()
+        flash('📚 Resource published to the academic vault! (+10 Karma awarded)', 'success')
+        return redirect(url_for('resources_list'))
+
+    return render_template('resource_new.html', title='Share Study Resource', form=form)
+
+
+@app.route('/resources/<int:resource_id>/helpful', methods=['POST'])
+def mark_resource_helpful(resource_id):
+    """Upvote a study resource and award karma."""
+    resource = Resource.query.get_or_404(resource_id)
+    resource.helpful_count += 1
+    if resource.author:
+        resource.author.karma = (resource.author.karma or 50) + 5
+    db.session.commit()
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'helpful_count': resource.helpful_count})
+
+    flash('Marked resource as helpful! (+5 Karma to contributor)', 'success')
+    return redirect(request.referrer or url_for('resources_list'))
+
+
+# ==========================================
+# AI Smart Note Beautifier / Summarizer API
+# ==========================================
+
+@app.route('/api/ai-summarize', methods=['POST'])
+def ai_summarize_note():
+    """
+    Client-side AI assistant helper to turn rough class notes or bullet points
+    into clean, formatted notes with key takeaways, formulas, and homework items.
+    """
+    data = request.get_json() or {}
+    raw_text = data.get('text', '').strip()
+    topic = data.get('topic', 'Class Recap').strip()
+
+    if not raw_text:
+        return jsonify({'error': 'No text provided'}), 400
+
+    lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
+    takeaways = []
+    homework = []
+    tips = []
+
+    for line in lines:
+        lower = line.lower()
+        if any(w in lower for w in ['hw', 'homework', 'assignment', 'submit', 'due', 'problem']):
+            homework.append(line)
+        elif any(w in lower for w in ['imp', 'exam', 'quiz', 'formula', 'test', 'note', 'remember', 'viva', 'theory']):
+            tips.append(line)
+        else:
+            takeaways.append(line)
+
+    formatted = f"### 📌 Core Topic: {topic}\n\n"
+    formatted += "#### 💡 Key Concepts & Takeaways Covered:\n"
+    if takeaways:
+        for t in takeaways:
+            clean_t = t.lstrip('-*• ')
+            formatted += f"- {clean_t}\n"
+    else:
+        formatted += "- Comprehensive lecture concepts covered and key examples solved.\n"
+
+    if homework:
+        formatted += "\n#### 📝 Homework & Action Items:\n"
+        for h in homework:
+            clean_h = h.lstrip('-*• ')
+            formatted += f"- [ ] {clean_h}\n"
+
+    if tips:
+        formatted += "\n#### ⚠️ Important Exam & Viva Tips:\n"
+        for tip in tips:
+            clean_tip = tip.lstrip('-*• ')
+            formatted += f"> **Crucial Point:** {clean_tip}\n"
+
+    return jsonify({
+        'success': True,
+        'formatted': formatted,
+        'word_count': len(formatted.split())
+    })
 
 
 # ==========================================

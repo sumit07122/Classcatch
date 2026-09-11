@@ -19,12 +19,27 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='student', nullable=False)
     avatar_color = db.Column(db.String(20), default='indigo', nullable=False)
+    karma = db.Column(db.Integer, default=50, nullable=False)
 
     # Relationships
     summaries = db.relationship('Summary', backref='author', lazy=True, cascade='all, delete-orphan')
     chats = db.relationship('ChatMessage', backref='author', lazy=True, cascade='all, delete-orphan')
     announcements = db.relationship('Announcement', backref='author', lazy=True, cascade='all, delete-orphan')
     attendance_records = db.relationship('AttendanceRecord', backref='student', lazy=True, cascade='all, delete-orphan')
+    deadlines = db.relationship('Deadline', backref='author', lazy=True, cascade='all, delete-orphan')
+    resources = db.relationship('Resource', backref='author', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def badge(self):
+        """Dynamic reputation badge based on student contribution karma."""
+        if self.karma >= 300:
+            return {'name': 'Campus Legend', 'icon': 'fa-crown', 'color': 'warning', 'level': 4}
+        elif self.karma >= 150:
+            return {'name': "Dean's Scholar", 'icon': 'fa-medal', 'color': 'primary', 'level': 3}
+        elif self.karma >= 75:
+            return {'name': 'Class Savior', 'icon': 'fa-award', 'color': 'info', 'level': 2}
+        else:
+            return {'name': 'Rising Contributor', 'icon': 'fa-star', 'color': 'secondary', 'level': 1}
 
     def set_password(self, password):
         """Hash and set the user password."""
@@ -59,6 +74,8 @@ class Course(db.Model):
     chats = db.relationship('ChatMessage', backref='course', lazy=True, cascade='all, delete-orphan')
     announcements = db.relationship('Announcement', backref='course', lazy=True, cascade='all, delete-orphan')
     attendances = db.relationship('AttendanceRecord', backref='course', lazy=True, cascade='all, delete-orphan')
+    deadlines = db.relationship('Deadline', backref='course', lazy=True, cascade='all, delete-orphan')
+    resources = db.relationship('Resource', backref='course', lazy=True, cascade='all, delete-orphan')
 
     @property
     def full_title(self):
@@ -179,3 +196,59 @@ class AttendanceRecord(db.Model):
 
     def __repr__(self):
         return f'<Attendance User:{self.user_id} Course:{self.course_id} %:{self.current_percentage}>'
+
+
+class Deadline(db.Model):
+    """
+    Academic deadlines, assignments, and exam countdowns.
+    """
+    __tablename__ = 'deadlines'
+
+    id = db.Column(db.Integer, primary_key=True)
+    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    title = db.Column(db.String(150), nullable=False)
+    due_date = db.Column(db.Date, nullable=False, index=True)
+    category = db.Column(db.String(40), default='Assignment', nullable=False)  # Assignment, Quiz, Exam, Lab Submission
+    priority = db.Column(db.String(20), default='Normal', nullable=False)     # High, Medium, Normal
+    description = db.Column(db.Text, nullable=True)
+    is_completed = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    @property
+    def days_remaining(self):
+        from datetime import date
+        today = date.today()
+        return (self.due_date - today).days
+
+    @property
+    def is_overdue(self):
+        return self.days_remaining < 0 and not self.is_completed
+
+    @property
+    def is_urgent(self):
+        return 0 <= self.days_remaining <= 2 and not self.is_completed
+
+    def __repr__(self):
+        return f'<Deadline {self.title} Due:{self.due_date}>'
+
+
+class Resource(db.Model):
+    """
+    Shared academic resources: PYQs, formula sheets, lab manuals, and slides.
+    """
+    __tablename__ = 'resources'
+
+    id = db.Column(db.Integer, primary_key=True)
+    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    title = db.Column(db.String(150), nullable=False)
+    category = db.Column(db.String(50), default='PYQ & Solutions', nullable=False)  # PYQ, Formula Sheet, Lab Manual, Handwritten Notes
+    resource_url = db.Column(db.String(300), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    downloads = db.Column(db.Integer, default=0, nullable=False)
+    helpful_count = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f'<Resource {self.title} ({self.category})>'
