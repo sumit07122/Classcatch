@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="card card-modern p-4 p-md-5 bg-white shadow-sm border-0">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb small text-muted mb-2">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Home</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Privacy Policy</li>
+                    </ol>
+                </nav>
+
+                <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+                    <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; font-size: 1.5rem;">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+                    <div>
+                        <h2 class="fw-bold text-dark mb-0">Privacy Policy</h2>
+                        <span class="text-muted small">Effective Date: September 2026 &middot; Compliant with Google Play Developer Policies</span>
+                    </div>
+                </div>
+
+                <div class="text-secondary lh-lg small">
+                    <h5 class="fw-bold text-dark mt-3">1. Introduction</h5>
+                    <p>ClassCatch ("we", "our", or "the App") is an educational peer-to-peer student platform designed for college students to share lecture notes, track attendance, and exchange academic materials. This Privacy Policy explains how information is collected, used, and protected when you use our mobile app (PWA) and web application.</p>
+
+                    <h5 class="fw-bold text-dark mt-4">2. Information We Collect</h5>
+                    <ul>
+                        <li><strong>Account Data:</strong> Full name, student email address, and encrypted passwords (hashed with salted Werkzeug/PBKDF2).</li>
+                        <li><strong>Academic Contributions:</strong> Lecture summaries, class noticeboard announcements, peer discussion messages, and shared study links.</li>
+                        <li><strong>Attendance Statistics:</strong> User-inputted attendance counts (total classes held and attended classes) stored privately to compute safe bunk predictions.</li>
+                        <li><strong>Anonymous Mode Posts:</strong> When you select "Ask Anonymously 🎭", your user ID is never publicly displayed to peers or linked to your chat bubble in course rooms.</li>
+                    </ul>
+
+                    <h5 class="fw-bold text-dark mt-4">3. Data Security & Storage</h5>
+                    <p>All student account data and academic records are securely stored on encrypted PostgreSQL databases (Supabase / AWS RDS). We use SSL/TLS encryption for all network transmissions. We do not sell, rent, or trade your personal data to third parties or advertisers.</p>
+
+                    <h5 class="fw-bold text-dark mt-4">4. Device Permissions</h5>
+                    <p>The ClassCatch application requests the following optional permissions:</p>
+                    <ul>
+                        <li><strong>Camera & Photo Gallery:</strong> Only when you choose to photograph the classroom blackboard or upload a handwritten note via the OCR scan tool.</li>
+                        <li><strong>Notifications:</strong> To deliver scheduled morning lecture briefings and urgent assignment deadline alerts.</li>
+                    </ul>
+
+                    <h5 class="fw-bold text-dark mt-4">5. Contact Us</h5>
+                    <p>If you have any questions or data removal requests regarding this Privacy Policy, contact our team at <a href="mailto:support@classcatch.edu" class="text-primary fw-bold">support@classcatch.edu</a>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,6 +1,11 @@
 import os
 from datetime import date, datetime, timedelta
-from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, abort
+from dotenv import load_dotenv
+
+# Load environment variables from .env if present
+load_dotenv()
+
+from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, abort, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord, Deadline, Resource
 from forms import (
@@ -11,9 +16,13 @@ from forms import (
 # Initialize Flask application
 app = Flask(__name__)
 
-# Application Configuration
+# Application Configuration (Supabase PostgreSQL / SQLite fallback)
+raw_db_url = os.environ.get('DATABASE_URL', 'sqlite:///classcatch.db')
+if raw_db_url.startswith("postgres://"):
+    raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'classcatch-secret-key-2026-prod')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///classcatch.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = raw_db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize extensions
@@ -791,6 +800,50 @@ def morning_dispatch():
         'classes_count': len(today_classes),
         'at_risk_count': len(at_risk_courses)
     })
+
+
+# ==========================================
+# Google Play Store & PWA TWA Compliance Routes
+# ==========================================
+
+@app.route('/.well-known/assetlinks.json')
+def assetlinks():
+    """
+    Digital Asset Links for Android Trusted Web Activity (TWA).
+    Enables Play Store app to run full-screen without Chrome address bar.
+    """
+    package_name = os.environ.get('ANDROID_PACKAGE_NAME', 'com.classcatch.app')
+    sha256_fingerprint = os.environ.get(
+        'ANDROID_SHA256_FINGERPRINT',
+        '14:6D:E9:7F:0F:7B:64:99:90:57:95:56:56:56:4C:E6:36:9C:A4:A5:6B:7F:2E:39:69:B3:68:5F:B6:58:24:99'
+    )
+    data = [{
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": package_name,
+            "sha256_cert_fingerprints": [sha256_fingerprint]
+        }
+    }]
+    return jsonify(data)
+
+
+@app.route('/privacy')
+def privacy_policy():
+    """Google Play Store mandated Privacy Policy page."""
+    return render_template('privacy.html', title='Privacy Policy - ClassCatch')
+
+
+@app.route('/terms')
+def terms_of_service():
+    """Terms of Service page."""
+    return render_template('terms.html', title='Terms of Service - ClassCatch')
+
+
+@app.route('/offline')
+def offline():
+    """PWA offline fallback screen when network drops in lecture hall."""
+    return render_template('offline.html', title='Offline Mode - ClassCatch')
 
 
 # ==========================================

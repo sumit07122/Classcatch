@@ -99,6 +99,32 @@ def test_classcatch():
     assert b"Academic Vault" in resources_res.data
     print("   [+] GET /resources -> 200 OK")
 
+    # Test Play Store Compliance & PWA routes
+    priv_res = client.get('/privacy')
+    assert priv_res.status_code == 200
+    assert b"Privacy Policy" in priv_res.data
+    print("   [+] GET /privacy -> 200 OK (Google Play compliant)")
+
+    terms_res = client.get('/terms')
+    assert terms_res.status_code == 200
+    print("   [+] GET /terms -> 200 OK")
+
+    asset_res = client.get('/.well-known/assetlinks.json')
+    assert asset_res.status_code == 200
+    assert b"delegate_permission" in asset_res.data
+    print("   [+] GET /.well-known/assetlinks.json -> 200 OK (Android TWA ready)")
+
+    # Test CR Verification
+    verify_res = client.post('/summary/1/verify', follow_redirects=True)
+    assert verify_res.status_code == 200
+    print("   [+] POST /summary/1/verify -> Success (CR seal toggled)")
+
+    # Test Morning Dispatch
+    dispatch_res = client.get('/api/morning-dispatch')
+    assert dispatch_res.status_code == 200
+    assert b"Daily Briefing" in dispatch_res.data
+    print("   [+] GET /api/morning-dispatch -> 200 OK & student briefing")
+
     # Test AI Summarize endpoint
     ai_res = client.post('/api/ai-summarize', json={
         'text': 'Covered B+ trees and indexing.\nHW: solve problem 4.2\nImp: guaranteed 10 mark question in midterms',

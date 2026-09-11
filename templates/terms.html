@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="card card-modern p-4 p-md-5 bg-white shadow-sm border-0">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb small text-muted mb-2">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Home</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Terms of Service</li>
+                    </ol>
+                </nav>
+
+                <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+                    <div class="rounded-circle bg-secondary-subtle text-secondary d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; font-size: 1.5rem;">
+                        <i class="bi bi-journal-text"></i>
+                    </div>
+                    <div>
+                        <h2 class="fw-bold text-dark mb-0">Terms of Service</h2>
+                        <span class="text-muted small">Standard College Community Guidelines</span>
+                    </div>
+                </div>
+
+                <div class="text-secondary lh-lg small">
+                    <h5 class="fw-bold text-dark mt-3">1. Code of Academic Conduct</h5>
+                    <p>ClassCatch is a collaborative peer learning environment. Users agree to share genuine, helpful class notes, accurate announcements, and fair feedback.</p>
+
+                    <h5 class="fw-bold text-dark mt-4">2. Prohibited Behavior</h5>
+                    <p>Users are strictly prohibited from posting hate speech, exam paper leaks during live tests, non-academic advertisements, or harassment in the Campus Lounge or Unofficial Class Chats.</p>
+
+                    <h5 class="fw-bold text-dark mt-4">3. Verification & Accuracy</h5>
+                    <p>While summaries may receive a "Verified by CR / Faculty" seal, ClassCatch serves as an informal peer resource. Students should always cross-reference official university notices for official administrative decisions.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
