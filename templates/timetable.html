@@ -50,12 +50,12 @@
     <!-- Day Navigation Pills (Interactive for both Mobile & Desktop) -->
     <div class="card shadow-sm border-0 rounded-4 mb-4">
         <div class="card-body p-2 p-md-3">
-            <div class="nav nav-pills nav-fill gap-2" id="timetableDays">
+            <div class="nav nav-pills nav-pills-modern nav-fill gap-1" id="timetableDays">
                 {% for day in days %}
-                <a href="{{ url_for('timetable_view', day=day) }}" class="nav-link py-2 px-3 rounded-3 fw-bold {% if selected_day == day %}active bg-primary{% else %}text-secondary bg-light{% endif %}">
+                <a href="{{ url_for('timetable_view', day=day) }}" class="nav-link py-2 px-3 fw-bold {% if selected_day == day %}active{% endif %}">
                     <span class="d-none d-md-inline">{{ day }}</span>
                     <span class="d-md-none">{{ day[:3] }}</span>
-                    <span class="badge {% if selected_day == day %}bg-light text-primary{% else %}bg-secondary text-white{% endif %} ms-1 rounded-pill small">
+                    <span class="badge {% if selected_day == day %}bg-primary text-white{% else %}bg-secondary-subtle text-muted{% endif %} ms-1 rounded-pill small">
                         {{ timetable_by_day[day]|length }}
                     </span>
                 </a>

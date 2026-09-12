@@ -32,36 +32,48 @@
 
     <!-- Main Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}" id="nav-brand">
-                <i class="fa-solid fa-graduation-cap"></i> ClassCatch
+        <div class="container-fluid px-lg-4">
+            <a class="navbar-brand d-flex align-items-center text-decoration-none" href="{{ url_for('index') }}" id="nav-brand">
+                <div class="brand-badge-icon me-2">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="brand-title">ClassCatch</span>
+                    <span class="badge-pilot-tag">2FE</span>
+                </div>
             </a>
             
-            <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
+            <button class="navbar-toggler border-0 shadow-none p-2 rounded-3 bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+                <i class="bi bi-list fs-5"></i>
             </button>
 
             <div class="collapse navbar-collapse" id="navbarMain">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3 gap-1">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-2 gap-1 align-items-lg-center">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}" id="nav-home">
-                            <i class="bi bi-house-door me-1"></i> Dashboard
+                        <a class="nav-link nav-tab-pill {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}" id="nav-home">
+                            <i class="bi bi-grid-fill me-1"></i> Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'catchup_hub' %}active{% endif %} text-warning-emphasis fw-semibold" href="{{ url_for('catchup_hub') }}" id="nav-catchup">
-                            <i class="bi bi-calendar-check me-1 text-warning"></i> What Did I Miss?
+                        <a class="nav-link nav-tab-pill {% if request.endpoint == 'catchup_hub' %}active{% endif %}" href="{{ url_for('catchup_hub') }}" id="nav-catchup">
+                            <i class="bi bi-lightning-charge-fill text-warning me-1"></i> Catch-Up
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-tab-pill {% if request.endpoint == 'timetable_view' %}active{% endif %}" href="{{ url_for('timetable_view') }}" id="nav-timetable">
+                            <i class="bi bi-calendar-week-fill me-1"></i> Timetable
                         </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" id="nav-courses">
-                            <i class="bi bi-journal-bookmark me-1"></i> Courses
+                        <a class="nav-link nav-tab-pill dropdown-toggle {% if request.endpoint and 'course' in request.endpoint %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" id="nav-courses">
+                            <i class="bi bi-journal-bookmark-fill me-1"></i> Courses
                         </a>
-                        <ul class="dropdown-menu shadow-sm border-0 rounded-3">
+                        <ul class="dropdown-menu dropdown-menu-modern shadow-lg border-0">
+                            <li class="dropdown-header small text-uppercase text-muted fw-bold pb-1">Semester 3 · Section 2FE</li>
                             {% for c in global_courses %}
                                 <li>
-                                    <a class="dropdown-item py-2" href="{{ url_for('course_detail', course_id=c.id) }}">
-                                        <strong>{{ c.code }}</strong> - <span class="text-muted small">{{ c.name }}</span>
+                                    <a class="dropdown-item py-1 px-3 d-flex align-items-center justify-content-between" href="{{ url_for('course_detail', course_id=c.id) }}">
+                                        <span><strong class="text-primary font-monospace small me-2">{{ c.code }}</strong> <span class="small">{{ c.name }}</span></span>
                                     </a>
                                 </li>
                             {% else %}
@@ -70,52 +82,45 @@
                         </ul>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'timetable_view' %}active{% endif %}" href="{{ url_for('timetable_view') }}" id="nav-timetable">
-                            <i class="bi bi-calendar-week me-1"></i> Timetable (2FE)
+                        <a class="nav-link nav-tab-pill {% if request.endpoint in ['resources_list', 'new_resource'] %}active{% endif %}" href="{{ url_for('resources_list') }}" id="nav-resources">
+                            <i class="bi bi-folder2-open me-1"></i> Vault
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint in ['deadlines_list', 'new_deadline'] %}active{% endif %}" href="{{ url_for('deadlines_list') }}" id="nav-deadlines">
-                            <i class="bi bi-alarm me-1"></i> Deadlines
+                        <a class="nav-link nav-tab-pill {% if request.endpoint == 'attendance_calculator' %}active{% endif %}" href="{{ url_for('attendance_calculator') }}" id="nav-attendance">
+                            <i class="bi bi-pie-chart-fill me-1"></i> Attendance
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint in ['resources_list', 'new_resource'] %}active{% endif %}" href="{{ url_for('resources_list') }}" id="nav-resources">
-                            <i class="bi bi-file-earmark-text me-1"></i> PYQs & Vault
+                        <a class="nav-link nav-tab-pill {% if request.endpoint in ['deadlines_list', 'new_deadline'] %}active{% endif %}" href="{{ url_for('deadlines_list') }}" id="nav-deadlines">
+                            <i class="bi bi-alarm-fill me-1"></i> Deadlines
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'attendance_calculator' %}active{% endif %}" href="{{ url_for('attendance_calculator') }}" id="nav-attendance">
-                            <i class="bi bi-calculator me-1"></i> Attendance & Bunks
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'lounge' %}active{% endif %}" href="{{ url_for('lounge') }}" id="nav-lounge">
-                            <i class="bi bi-chat-dots me-1"></i> Lounge
+                        <a class="nav-link nav-tab-pill {% if request.endpoint == 'lounge' %}active{% endif %}" href="{{ url_for('lounge') }}" id="nav-lounge">
+                            <i class="bi bi-chat-dots-fill me-1"></i> Lounge
                         </a>
                     </li>
                     {% if current_user.is_authenticated and current_user.is_admin() %}
                         <li class="nav-item">
-                            <a class="nav-link text-primary fw-bold" href="{{ url_for('admin_dashboard') }}" id="nav-admin">
+                            <a class="nav-link nav-tab-pill nav-tab-admin fw-bold" href="{{ url_for('admin_dashboard') }}" id="nav-admin">
                                 <i class="fa-solid fa-shield-halved me-1"></i> Admin
                             </a>
                         </li>
                     {% endif %}
                 </ul>
 
-                <!-- Global Search Box -->
-                <form action="{{ url_for('global_search') }}" method="GET" class="d-none d-md-flex align-items-center me-2">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-light border-end-0 text-muted rounded-start-pill ps-3">
-                            <i class="bi bi-search"></i>
-                        </span>
-                        <input type="text" name="q" id="globalSearchInput" class="form-control bg-light border-start-0 rounded-end-pill pe-3" 
-                               placeholder="Search notes, PYQs... (/)" style="width: 170px;" autocomplete="off">
-                    </div>
-                </form>
-
                 <!-- Action & User Auth Controls -->
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap flex-lg-nowrap mt-2 mt-lg-0">
+                    <!-- Global Search Box -->
+                    <form action="{{ url_for('global_search') }}" method="GET" class="d-none d-xl-flex align-items-center me-1">
+                        <div class="search-pill-wrapper">
+                            <i class="bi bi-search text-muted me-2" style="font-size: 0.8rem;"></i>
+                            <input type="text" name="q" id="globalSearchInput" class="search-pill-input" placeholder="Search notes, PYQs... (/)" autocomplete="off">
+                            <span class="search-pill-kbd">/</span>
+                        </div>
+                    </form>
+
                     <!-- PWA Install Button -->
                     <button id="pwaInstallBtn" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 d-none align-items-center gap-1 shadow-xs" title="Install ClassCatch App on Phone / Desktop">
                         <i class="bi bi-phone"></i>
@@ -124,46 +129,50 @@
 
                     {% if current_user.is_authenticated %}
                         <!-- 2FE Pilot Feedback Button -->
-                        <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs" data-bs-toggle="modal" data-bs-target="#pilotFeedbackModal" title="Give 2FE Pilot Feedback">
-                            <i class="bi bi-chat-heart text-warning"></i>
-                            <span class="d-none d-lg-inline small fw-bold text-dark">Feedback</span>
+                        <button type="button" class="btn-nav-feedback" data-bs-toggle="modal" data-bs-target="#pilotFeedbackModal" title="Give 2FE Pilot Feedback">
+                            <i class="bi bi-chat-heart-fill text-warning"></i>
+                            <span class="d-none d-lg-inline">Feedback</span>
                         </button>
 
                         <!-- Student Karma Badge -->
-                        <div class="d-none d-xl-flex align-items-center gap-1 bg-white border rounded-pill px-3 py-1 shadow-xs" title="{{ current_user.badge.name }}">
+                        <div class="karma-badge-pill d-none d-xxl-flex" title="{{ current_user.badge.name }}">
                             <i class="fa-solid {{ current_user.badge.icon }} text-warning"></i>
-                            <span class="fw-bold small text-dark">{{ current_user.karma }}</span>
-                            <span class="text-muted" style="font-size: 0.75rem;">Karma</span>
+                            <span>{{ current_user.karma }}</span>
                         </div>
-                        <a href="{{ url_for('post_summary') }}" class="btn btn-primary-gradient btn-sm px-3 py-2 d-flex align-items-center gap-2" id="nav-btn-post">
-                            <i class="bi bi-plus-circle-fill"></i>
-                            <span>Post Catch-up</span>
+
+                        <!-- Post Catch-up Button -->
+                        <a href="{{ url_for('post_summary') }}" class="btn-nav-action" id="nav-btn-post">
+                            <i class="bi bi-plus-lg"></i>
+                            <span>Post Catch-Up</span>
                         </a>
+
+                        <!-- User Profile Pill Dropdown -->
                         <div class="dropdown">
-                            <button class="btn btn-light rounded-pill border px-3 py-1 dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <span class="badge rounded-circle bg-primary text-white p-2" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;">
+                            <button class="btn-nav-profile dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <div class="nav-avatar-circle">
                                     {{ current_user.name[0]|upper }}
-                                </span>
-                                <span class="small fw-bold d-none d-sm-inline">{{ current_user.name.split()[0] }}</span>
+                                </div>
+                                <span class="nav-username d-none d-md-inline">{{ current_user.name.split()[0] }}</span>
+                                <i class="bi bi-chevron-down nav-caret"></i>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
+                            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-modern shadow-lg border-0">
                                 <li class="dropdown-header">
-                                    <div class="fw-bold">{{ current_user.name }}</div>
+                                    <div class="fw-bold text-dark">{{ current_user.name }}</div>
                                     <div class="text-muted small text-truncate" style="max-width: 180px;">{{ current_user.email }}</div>
-                                    <div class="badge bg-light text-primary border mt-1"><i class="fa-solid {{ current_user.badge.icon }} me-1"></i> {{ current_user.badge.name }}</div>
+                                    <div class="badge bg-primary-subtle text-primary border border-primary-subtle mt-1"><i class="fa-solid {{ current_user.badge.icon }} me-1"></i> {{ current_user.badge.name }} ({{ current_user.karma }} Karma)</div>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
                                 {% if current_user.is_admin() %}
                                     <li><a class="dropdown-item fw-bold text-primary" href="{{ url_for('admin_dashboard') }}"><i class="fa-solid fa-shield-halved me-2"></i> Admin Control Center</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                 {% endif %}
-                                <li><a class="dropdown-item" href="{{ url_for('catchup_hub') }}"><i class="bi bi-calendar-check me-2"></i> What Did I Miss?</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('attendance_calculator') }}"><i class="bi bi-pie-chart me-2"></i> My Attendance</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('deadlines_list') }}"><i class="bi bi-alarm me-2"></i> My Deadlines</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('new_resource') }}"><i class="bi bi-cloud-upload me-2"></i> Share Study Material</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('create_course') }}"><i class="bi bi-journal-plus me-2"></i> Add Subject</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('catchup_hub') }}"><i class="bi bi-calendar-check me-2 text-warning"></i> What Did I Miss?</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('timetable_view') }}"><i class="bi bi-calendar-week me-2 text-primary"></i> 2FE Timetable</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('attendance_calculator') }}"><i class="bi bi-pie-chart me-2 text-success"></i> My Attendance</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('deadlines_list') }}"><i class="bi bi-alarm me-2 text-danger"></i> Deadlines</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('new_resource') }}"><i class="bi bi-cloud-upload me-2 text-info"></i> Upload PYQ / Material</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right me-2"></i> Log Out</a></li>
+                                <li><a class="dropdown-item text-danger fw-semibold" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right me-2"></i> Log Out</a></li>
                             </ul>
                         </div>
                     {% else %}

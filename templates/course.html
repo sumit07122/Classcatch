@@ -71,20 +71,20 @@
 </div>
 
 <!-- Navigation Tabs -->
-<ul class="nav nav-pills mb-4 gap-2 bg-white p-2 rounded-4 border shadow-sm" id="courseTabs" role="tablist">
+<ul class="nav nav-pills nav-pills-modern mb-4 gap-1 shadow-xs" id="courseTabs" role="tablist">
     <li class="nav-item">
         <a class="nav-link {% if active_tab == 'summaries' %}active{% endif %}" href="{{ url_for('course_detail', course_id=course.id, tab='summaries') }}" id="tab-summaries">
-            <i class="bi bi-file-earmark-text me-1"></i> Class Catch-ups <span class="badge bg-secondary ms-1">{{ summaries|length }}</span>
+            <i class="bi bi-file-earmark-text me-1"></i> Class Catch-ups <span class="badge {% if active_tab == 'summaries' %}bg-primary-subtle text-primary{% else %}bg-secondary-subtle text-muted{% endif %} ms-1">{{ summaries|length }}</span>
         </a>
     </li>
     <li class="nav-item">
         <a class="nav-link {% if active_tab == 'chat' %}active{% endif %}" href="{{ url_for('course_detail', course_id=course.id, tab='chat') }}" id="tab-chat">
-            <i class="bi bi-chat-dots me-1"></i> Unofficial Class Chat <span class="badge bg-secondary ms-1">{{ chats|length }}</span>
+            <i class="bi bi-chat-dots me-1"></i> Unofficial Class Chat <span class="badge {% if active_tab == 'chat' %}bg-primary-subtle text-primary{% else %}bg-secondary-subtle text-muted{% endif %} ms-1">{{ chats|length }}</span>
         </a>
     </li>
     <li class="nav-item">
         <a class="nav-link {% if active_tab == 'announcements' %}active{% endif %}" href="{{ url_for('course_detail', course_id=course.id, tab='announcements') }}" id="tab-announcements">
-            <i class="bi bi-bell me-1"></i> Announcements <span class="badge bg-secondary ms-1">{{ announcements|length }}</span>
+            <i class="bi bi-bell me-1"></i> Announcements <span class="badge {% if active_tab == 'announcements' %}bg-primary-subtle text-primary{% else %}bg-secondary-subtle text-muted{% endif %} ms-1">{{ announcements|length }}</span>
         </a>
     </li>
     <li class="nav-item">
