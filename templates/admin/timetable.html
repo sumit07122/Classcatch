@@ -1,0 +1,126 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Timetable Management - ClassCatch Admin{% endblock %}
+{% block page_title %}2FE Timetable Slots Management{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Add Timetable Slot Form -->
+    <div class="col-lg-4">
+        <div class="admin-card">
+            <h3 class="h6 fw-bold mb-3 text-white">
+                <i class="fa-solid fa-plus-circle text-primary me-2"></i>Add Timetable Slot
+            </h3>
+            <form method="POST" action="{{ url_for('admin_timetable') }}">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    <label class="form-label text-white small">Course <span class="text-danger">*</span></label>
+                    {{ form.course_id(class="form-select form-select-sm bg-dark text-white border-secondary") }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-white small">Day of Week <span class="text-danger">*</span></label>
+                    {{ form.day_of_week(class="form-select form-select-sm bg-dark text-white border-secondary") }}
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label text-white small">Start Time</label>
+                        {{ form.start_time(class="form-control form-control-sm bg-dark text-white border-secondary", placeholder="10:00 AM") }}
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-white small">End Time</label>
+                        {{ form.end_time(class="form-control form-control-sm bg-dark text-white border-secondary", placeholder="11:00 AM") }}
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label text-white small">Slot Type</label>
+                        {{ form.slot_type(class="form-select form-select-sm bg-dark text-white border-secondary") }}
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-white small">Section</label>
+                        {{ form.section(class="form-control form-control-sm bg-dark text-white border-secondary") }}
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label text-white small">Building</label>
+                        {{ form.building(class="form-control form-control-sm bg-dark text-white border-secondary", placeholder="AB-VI") }}
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-white small">Room</label>
+                        {{ form.room(class="form-control form-control-sm bg-dark text-white border-secondary", placeholder="306") }}
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-white small">Faculty Name</label>
+                    {{ form.faculty(class="form-control form-control-sm bg-dark text-white border-secondary", placeholder="Optional Faculty override") }}
+                </div>
+                <button type="submit" class="admin-btn admin-btn-primary w-100">
+                    <i class="fa-solid fa-save me-1"></i> Add Timetable Slot
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Existing Slots Table -->
+    <div class="col-lg-8">
+        <div class="admin-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="h6 fw-bold mb-0 text-white">
+                    <i class="fa-solid fa-calendar-week text-info me-2"></i>Active Timetable Slots ({{ slots|length }})
+                </h3>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('admin_export_csv', entity='timetable') }}" class="admin-btn admin-btn-secondary admin-btn-sm">
+                        <i class="fa-solid fa-file-export"></i> Export CSV
+                    </a>
+                    <a href="{{ url_for('timetable_view') }}" target="_blank" class="admin-btn admin-btn-secondary admin-btn-sm">
+                        <i class="fa-solid fa-eye"></i> View Live Student Grid
+                    </a>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Day</th>
+                            <th>Time</th>
+                            <th>Course</th>
+                            <th>Type</th>
+                            <th>Room</th>
+                            <th>Faculty</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in slots %}
+                        <tr>
+                            <td><span class="badge bg-secondary">{{ s.day_of_week[:3] }}</span></td>
+                            <td class="font-monospace small text-primary">{{ s.time_range }}</td>
+                            <td>
+                                <strong class="text-white d-block small">{{ s.course.code }}</strong>
+                                <span class="text-muted small text-truncate d-inline-block" style="max-width: 140px;">{{ s.course.name }}</span>
+                            </td>
+                            <td>
+                                <span class="badge {% if s.slot_type == 'Lab' %}bg-warning text-dark{% else %}bg-primary{% endif %} small">
+                                    {{ s.slot_type }}
+                                </span>
+                            </td>
+                            <td class="small">{{ s.building }} - {{ s.room }}</td>
+                            <td class="small text-muted">{{ s.faculty or s.course.instructor }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('admin_delete_timetable_slot', slot_id=s.id) }}" class="d-inline" onsubmit="return confirm('Remove this timetable slot?')">
+                                    <button type="submit" class="admin-btn admin-btn-danger admin-btn-sm" title="Delete Slot">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

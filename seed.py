@@ -1,386 +1,49 @@
 """
-ClassCatch Database Seeding Script
-===================================
+ClassCatch Database Seeding Script — GLA University 2FE Pilot
+============================================================
 Pre-populates the database with:
-- Standard Computer Science courses (timings, instructors, room numbers, status)
-- Demo student accounts
-- Realistic lecture catch-up notes (assignments, topics, announcements)
-- Unofficial class chat discussions and peer requirements
-- Campus announcements
-- Sample student attendance records
+- 10 Real GLA 2FE Academic Courses & Faculty
+- Complete Monday–Friday 2FE Timetable Slots (AB-VI Room 306, AB-I Room 425, AB-V Room 218C)
+- GLA Academic Leadership Records (HOD, Program Coordinator, Class Advisor)
+- Official 2FE Student Roster Entries (@gla.ac.in)
+- Verified GLA Student Accounts with Active 2FE Enrollments
+- Course Summaries, Academic Deadlines, Attendance Records, and Announcements
+- System Feature Flags and Institutional Settings
 
 Usage:
     python seed.py
 """
 
+import os
 from datetime import date, timedelta
 from app import app
 from models import (
     db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord,
-    Deadline, Resource, CRAssignment, Report, AuditLog, FeatureFlag, SystemSetting
+    Deadline, Resource, CRAssignment, Report, AuditLog, FeatureFlag, SystemSetting,
+    Enrollment, RosterEntry, TimetableSlot, AcademicStaff, StorageFile
 )
 
 def seed_database():
     with app.app_context():
-        print("[*] Rebuilding database schema...")
-        db.drop_all()
+        print("[*] Initializing database schema...")
         db.create_all()
 
-        print("[*] Creating administrative and demo student accounts...")
-        # SuperAdmin & Admin
-        superadmin = User(name="Principal SuperAdmin", email="superadmin@classcatch.edu", role="superadmin", karma=1000)
-        superadmin.set_password("password123")
-
-        admin = User(name="Academic Dean Admin", email="admin@classcatch.edu", role="admin", karma=500)
-        admin.set_password("password123")
-
-        # Demo Students with realistic Karma points & badges
-        alex = User(name="Alex Rivera", email="alex@classcatch.edu", role="cr", karma=340)
-        alex.set_password("password123")
-
-        sarah = User(name="Sarah Chen", email="sarah@classcatch.edu", role="student", karma=195)
-        sarah.set_password("password123")
-
-        david = User(name="David Sharma", email="david@classcatch.edu", role="student", karma=85)
-        david.set_password("password123")
-
-        db.session.add_all([superadmin, admin, alex, sarah, david])
+        # Clean existing data safely
+        for model in [
+            AuditLog, Report, CRAssignment, Resource, StorageFile, Deadline,
+            AttendanceRecord, Announcement, ChatMessage, Summary, TimetableSlot,
+            AcademicStaff, Enrollment, RosterEntry, Course, User, FeatureFlag, SystemSetting
+        ]:
+            try:
+                db.session.query(model).delete()
+            except Exception:
+                pass
         db.session.commit()
 
-        print("[*] Creating college courses...")
-        # Core Courses
-        dbms = Course(
-            name="Database Management Systems",
-            code="CSE-301",
-            section="A",
-            semester=5,
-            instructor="Dr. R. Sharma",
-            room="Room 304 (Block B)",
-            schedule="Mon, Wed, Fri (10:00 AM - 11:00 AM)",
-            status="Scheduled"
-        )
-        os_course = Course(
-            name="Operating Systems",
-            code="CSE-302",
-            section="A",
-            semester=5,
-            instructor="Prof. Anjali Verma",
-            room="Lecture Theater 2",
-            schedule="Tue, Thu (11:30 AM - 1:00 PM)",
-            status="Scheduled"
-        )
-        dsa = Course(
-            name="Data Structures & Algorithms",
-            code="CSE-201",
-            section="B",
-            semester=3,
-            instructor="Dr. Vikram Patel",
-            room="Computer Lab 1",
-            schedule="Mon, Wed (02:00 PM - 03:30 PM)",
-            status="Scheduled"
-        )
-        networks = Course(
-            name="Computer Networks",
-            code="CSE-303",
-            section="A",
-            semester=5,
-            instructor="Prof. Sneha Kulkarni",
-            room="Room 201 (Block A)",
-            schedule="Tue, Fri (09:00 AM - 10:30 AM)",
-            status="Scheduled"
-        )
-        se = Course(
-            name="Software Engineering",
-            code="CSE-401",
-            section="C",
-            semester=7,
-            instructor="Dr. Arvind Gupta",
-            room="Seminar Hall 3",
-            schedule="Thu, Fri (03:30 PM - 05:00 PM)",
-            status="Scheduled"
-        )
-
-        db.session.add_all([dbms, os_course, dsa, networks, se])
-        db.session.commit()
-
-        today = date.today()
-        yesterday = today - timedelta(days=1)
-        two_days_ago = today - timedelta(days=2)
-
-        print("[*] Seeding class catch-up summaries...")
-        summaries = [
-            # DBMS Summaries
-            Summary(
-                course_id=dbms.id,
-                user_id=sarah.id,
-                date=today,
-                topic="B+ Tree Indexing vs Hash Indexing",
-                category="Lecture Notes",
-                helpful_count=5,
-                content=(
-                    "1. Lecture Topics: Discussed B+ tree internal vs leaf nodes, search complexity O(log N), "
-                    "and why B+ trees are ideal for range queries compared to hash indexes.\n\n"
-                    "2. Homework / Assignment: Exercise questions 11.4 and 11.6 from the Ramakrishnan textbook. "
-                    "Submission deadline is next Monday at 11:59 PM on Google Classroom.\n\n"
-                    "3. Notice: Lab 4 on Tuesday will be an evaluated practical exam on SQL triggers."
-                )
-            ),
-            Summary(
-                course_id=dbms.id,
-                user_id=david.id,
-                date=two_days_ago,
-                topic="Relational Calculus & Tuple Calculus",
-                category="Exam Prep",
-                helpful_count=3,
-                content=(
-                    "1. Topics Covered: Tuple Relational Calculus (TRC) safe expressions and Domain Relational Calculus (DRC).\n\n"
-                    "2. Practice Problems: Solved 3 query translations from English to TRC.\n\n"
-                    "3. Important: Prof. Sharma mentioned these queries will definitely appear in Midterm 1!"
-                )
-            ),
-            # OS Summaries
-            Summary(
-                course_id=os_course.id,
-                user_id=alex.id,
-                date=today,
-                topic="Deadlock Avoidance & Banker's Algorithm",
-                category="Lecture Notes",
-                helpful_count=8,
-                content=(
-                    "1. Topics Covered: Safe state vs Unsafe state, Resource Allocation Graph, Banker's Safety "
-                    "Algorithm and Resource Request Algorithm.\n\n"
-                    "2. Assignment: Complete the 5-process allocation matrix handout by this Friday.\n\n"
-                    "3. Announcement: Extra class scheduled next Wednesday for CPU scheduling doubts."
-                )
-            ),
-            # DSA Summaries
-            Summary(
-                course_id=dsa.id,
-                user_id=sarah.id,
-                date=yesterday,
-                topic="Dijkstra's Algorithm & Priority Queues",
-                category="Lecture Notes",
-                helpful_count=6,
-                content=(
-                    "1. Topics Covered: Greedy approach for single source shortest path. Proved why Dijkstra fails "
-                    "with negative edge weights.\n\n"
-                    "2. Lab Assignment: Implement Dijkstra using Min-Heap / std::priority_queue in C++ or Python.\n\n"
-                    "3. Homework: Time complexity analysis proof."
-                )
-            )
-        ]
-        db.session.add_all(summaries)
-
-        print("[*] Seeding unofficial class chat discussions...")
-        chats = [
-            ChatMessage(
-                course_id=dbms.id,
-                user_id=alex.id,
-                category="Notes Request",
-                message="Hey everyone, did anyone note down the example query Prof wrote on the whiteboard near the end of class?"
-            ),
-            ChatMessage(
-                course_id=dbms.id,
-                user_id=sarah.id,
-                category="General",
-                message="Yes! It was: SELECT S.sname FROM Sailors S WHERE NOT EXISTS (SELECT B.bid FROM Boats B EXCEPT SELECT R.bid FROM Reserves R WHERE R.sid = S.sid)"
-            ),
-            ChatMessage(
-                course_id=dbms.id,
-                user_id=david.id,
-                category="Requirement",
-                message="Looking for 1 more teammate for the semester DBMS project. Working on a hospital management portal using Flask + Postgres. DM me!"
-            ),
-            ChatMessage(
-                course_id=os_course.id,
-                user_id=david.id,
-                category="Doubt",
-                message="In Banker's algorithm, if Request_i <= Need_i holds but Request_i > Available, do we put the process in wait immediately?"
-            ),
-            ChatMessage(
-                course_id=os_course.id,
-                user_id=alex.id,
-                category="General",
-                message="Yes, process P_i must wait until resources become available."
-            ),
-            # Campus Lounge general chat
-            ChatMessage(
-                course_id=None,
-                user_id=sarah.id,
-                category="Requirement",
-                message="Does anyone from 3rd or 4th year have the previous year mid-term question paper for Computer Networks (CSE-303)?"
-            ),
-            ChatMessage(
-                course_id=None,
-                user_id=david.id,
-                category="General",
-                message="Check out the campus library drive or the ClassCatch summaries tab for networks, someone uploaded the topic checklist!"
-            )
-        ]
-        db.session.add_all(chats)
-
-        print("[*] Seeding class announcements...")
-        announcements = [
-            Announcement(
-                course_id=dbms.id,
-                user_id=sarah.id,
-                title="Midterm 1 Examination Date Finalized",
-                tag="Exam",
-                content="Midterm 1 will be held on September 22, 2026 from 10:00 AM to 11:30 AM in Room 304. Syllabus: Modules 1, 2, and 3."
-            ),
-            Announcement(
-                course_id=dbms.id,
-                user_id=alex.id,
-                title="Lab 4 Shifted to Computer Lab 3",
-                tag="Room Change",
-                content="Due to maintenance in Lab 1, tomorrow's DBMS lab session will take place in Computer Lab 3 (Block C)."
-            ),
-            Announcement(
-                course_id=os_course.id,
-                user_id=david.id,
-                title="Assignment #2 Submission Deadline Extended",
-                tag="Assignment",
-                content="Prof. Verma has extended the deadline for the Process Synchronization assignment by 48 hours until Sunday midnight."
-            )
-        ]
-        db.session.add_all(announcements)
-
-        print("[*] Seeding sample student attendance records...")
-        attendances = [
-            AttendanceRecord(
-                user_id=alex.id,
-                course_id=dbms.id,
-                total_classes=32,
-                attended_classes=28,
-                target_percentage=75.0
-            ),
-            AttendanceRecord(
-                user_id=alex.id,
-                course_id=os_course.id,
-                total_classes=30,
-                attended_classes=22,
-                target_percentage=75.0
-            ),
-            AttendanceRecord(
-                user_id=alex.id,
-                course_id=dsa.id,
-                total_classes=28,
-                attended_classes=25,
-                target_percentage=75.0
-            )
-        ]
-        db.session.add_all(attendances)
-
-        print("[*] Seeding academic deadlines & exam countdowns...")
-        deadlines = [
-            Deadline(
-                course_id=dbms.id,
-                user_id=alex.id,
-                title="ER Diagram & Relational Schema Assignment",
-                due_date=today + timedelta(days=2),
-                category="Assignment",
-                priority="High",
-                description="Submit on Moodle portal by 11:59 PM. Include normalization steps up to BCNF."
-            ),
-            Deadline(
-                course_id=os_course.id,
-                user_id=sarah.id,
-                title="Mid-Term Examination: Memory Management & Threads",
-                due_date=today + timedelta(days=5),
-                category="Quiz / Exam",
-                priority="High",
-                description="Closed-book exam in Lecture Theater 2. Syllabus: Units 1, 2, and 3."
-            ),
-            Deadline(
-                course_id=dsa.id,
-                user_id=david.id,
-                title="Graph Algorithms & Dijkstra Implementation Lab",
-                due_date=today + timedelta(days=1),
-                category="Lab Submission",
-                priority="Medium",
-                description="Push code to GitHub and submit lab report with complexity analysis."
-            ),
-            Deadline(
-                course_id=networks.id,
-                user_id=alex.id,
-                title="Wireshark Packet Analysis Project",
-                due_date=today + timedelta(days=8),
-                category="Project Milestone",
-                priority="Normal",
-                description="Capture and analyze HTTP, DNS, and TCP 3-way handshake pcap files."
-            )
-        ]
-        db.session.add_all(deadlines)
-
-        print("[*] Seeding PYQs & academic resource vault...")
-        resources = [
-            Resource(
-                course_id=dbms.id,
-                user_id=alex.id,
-                title="DBMS End-Term 2024 & 2023 Solved Question Papers",
-                category="PYQ & Solutions",
-                resource_url="https://drive.google.com/file/d/sample-dbms-pyq/view",
-                description="Complete solved papers with step-by-step SQL queries and B+ tree splitting diagrams.",
-                helpful_count=18,
-                status="Approved",
-                is_featured=True
-            ),
-            Resource(
-                course_id=os_course.id,
-                user_id=sarah.id,
-                title="CPU Scheduling & Page Replacement Formula Sheet",
-                category="Formula Cheat Sheet",
-                resource_url="https://drive.google.com/file/d/sample-os-cheat-sheet/view",
-                description="Quick revision 2-pager for FCFS, SJF, Round Robin, LRU, and Banker's Algorithm.",
-                helpful_count=24,
-                status="Approved"
-            ),
-            Resource(
-                course_id=dsa.id,
-                user_id=david.id,
-                title="Data Structures Lab Manual with Clean C++ Code",
-                category="Lab Manual & Codes",
-                resource_url="https://github.com/example/dsa-lab-solutions",
-                description="Tested implementations of AVL Trees, Red-Black Trees, Graph traversals, and Heaps.",
-                helpful_count=15,
-                status="Approved"
-            ),
-            Resource(
-                course_id=networks.id,
-                user_id=sarah.id,
-                title="Subnetting & IP Addressing Quick Reference Map",
-                category="Handwritten Notes",
-                resource_url="https://drive.google.com/file/d/sample-subnetting-guide/view",
-                description="Clear handwritten tricks to solve CIDR subnetting questions in under 30 seconds.",
-                helpful_count=31,
-                status="Approved"
-            ),
-            # Sample Pending Resource for Admin Moderation
-            Resource(
-                course_id=dbms.id,
-                user_id=david.id,
-                title="Database Normalization 1NF to BCNF Cheat Sheet (Pending Review)",
-                category="Formula Cheat Sheet",
-                resource_url="https://drive.google.com/file/d/sample-normalization-pending/view",
-                description="Student-uploaded cheat sheet pending CR/Admin approval.",
-                status="Pending Review"
-            )
-        ]
-        db.session.add_all(resources)
-
-        print("[*] Seeding Class Representative (CR) assignments...")
-        cr_assignment = CRAssignment(
-            user_id=alex.id,
-            course_id=dbms.id,
-            section="A",
-            assigned_by_id=admin.id
-        )
-        db.session.add(cr_assignment)
-
-        print("[*] Seeding operational Feature Flags...")
-        flags = [
-            FeatureFlag(key="catchup_feed", name="Missed Class Catch-up Engine", description="Aggregated multi-course lecture catch-up feed", is_enabled=True),
-            FeatureFlag(key="attendance_tracker", name="Attendance & Safe Bunk Predictor", description="Safe bunk and recovery math calculator", is_enabled=True),
+        print("[*] Seeding Global Feature Flags and Institutional Settings...")
+        feature_flags = [
+            FeatureFlag(key="catchup_feed", name="Missed Class Catch-up Engine", description="Multi-course lecture catch-up feed", is_enabled=True),
+            FeatureFlag(key="attendance_tracker", name="Attendance & Safe Bunk Predictor", description="Safe bunk and recovery calculator", is_enabled=True),
             FeatureFlag(key="academic_vault", name="Academic Resource & PYQ Vault", description="Student-shared previous exam questions and notes", is_enabled=True),
             FeatureFlag(key="campus_chat", name="Unofficial Peer & Course Chat", description="Peer discussion and requirements exchange", is_enabled=True),
             FeatureFlag(key="anonymous_doubts", name="Anonymous Doubt Clearing Mode", description="Masks student identity for honest doubts", is_enabled=True),
@@ -388,36 +51,417 @@ def seed_database():
             FeatureFlag(key="morning_dispatch", name="Morning Timetable & WhatsApp Digest", description="Daily academic briefing simulation", is_enabled=True),
             FeatureFlag(key="karma_rewards", name="Peer Contribution & Karma System", description="Rewards students for quality lecture summaries", is_enabled=True)
         ]
-        db.session.add_all(flags)
+        db.session.add_all(feature_flags)
 
-        print("[*] Seeding System Settings...")
-        settings = [
-            SystemSetting(key="attendance_threshold", value="75.0", description="Institutional minimum attendance target percentage"),
+        system_settings = [
+            SystemSetting(key="attendance_threshold", value="75.0", description="GLA University mandatory attendance percentage target"),
             SystemSetting(key="maintenance_mode", value="false", description="Restricts student access for scheduled maintenance"),
             SystemSetting(key="registration_enabled", value="true", description="Allow new student registrations"),
-            SystemSetting(key="default_semester", value="5", description="Default active academic semester")
+            SystemSetting(key="default_semester", value="3", description="Default active academic semester"),
+            SystemSetting(key="college_name", value="GLA University, Mathura Campus", description="Active pilot university campus"),
+            SystemSetting(key="active_pilot_section", value="2FE", description="Strictly restricted active pilot section")
         ]
-        db.session.add_all(settings)
-
-        print("[*] Seeding sample student report for Moderation Center...")
-        sample_report = Report(
-            reporter_id=sarah.id,
-            target_type="chat",
-            target_id=1,
-            category="Spam",
-            reason="Repeated message asking for solved lab files without contributing.",
-            status="Open"
-        )
-        db.session.add(sample_report)
-
+        db.session.add_all(system_settings)
         db.session.commit()
-        print("[OK] Database successfully seeded with rich mock data & administrative fixtures!")
-        print("\n[INFO] Demo Logins:")
-        print("   SUPER ADMIN: superadmin@classcatch.edu  Password: password123")
-        print("   ADMIN:       admin@classcatch.edu       Password: password123")
-        print("   CR:          alex@classcatch.edu        Password: password123")
-        print("   STUDENT 1:   sarah@classcatch.edu       Password: password123")
-        print("   STUDENT 2:   david@classcatch.edu       Password: password123")
+
+        print("[*] Seeding GLA Academic Leadership Records...")
+        staff_records = [
+            AcademicStaff(
+                name="Dr. Sandeep Kumar Rathore",
+                employee_id="GLA107230",
+                designation="Head of Department",
+                department="CSE",
+                email="hod.cse@gla.ac.in"
+            ),
+            AcademicStaff(
+                name="Dr. Juginder Pal Singh",
+                employee_id="GLA106249",
+                designation="Program Co-Ordinator",
+                department="CSE",
+                email="pc.btech@gla.ac.in"
+            ),
+            AcademicStaff(
+                name="Dr. Amit Kumar",
+                employee_id="GLA123261",
+                designation="Class Advisor",
+                department="CSE",
+                section="2FE",
+                email="amit.kumar@gla.ac.in"
+            )
+        ]
+        db.session.add_all(staff_records)
+        db.session.commit()
+
+        print("[*] Seeding Official 2FE Approved Student Roster (GLA University)...")
+        roster_entries = [
+            RosterEntry(email="aarav.patel@gla.ac.in", name="Aarav Patel", student_id="GLA26001", section="2FE", program="B.Tech CSE", semester=3, academic_year="2026-27"),
+            RosterEntry(email="priya.singh@gla.ac.in", name="Priya Singh", student_id="GLA26002", section="2FE", program="B.Tech CSE", semester=3, academic_year="2026-27"),
+            RosterEntry(email="rohit.verma@gla.ac.in", name="Rohit Verma", student_id="GLA26003", section="2FE", program="B.Tech CSE", semester=3, academic_year="2026-27"),
+            RosterEntry(email="ananya.sharma@gla.ac.in", name="Ananya Sharma", student_id="GLA26004", section="2FE", program="B.Tech CSE", semester=3, academic_year="2026-27"),
+            RosterEntry(email="vikram.aditya@gla.ac.in", name="Vikram Aditya", student_id="GLA26005", section="2FE", program="B.Tech CSE", semester=3, academic_year="2026-27"),
+            RosterEntry(email="neha.gupta@gla.ac.in", name="Neha Gupta", student_id="GLA26006", section="2FE", program="B.Tech CSE", semester=3, academic_year="2026-27"),
+            RosterEntry(email="rahul.mehta@gla.ac.in", name="Rahul Mehta", student_id="GLA26007", section="2FE", program="B.Tech CSE", semester=3, academic_year="2026-27")
+        ]
+        db.session.add_all(roster_entries)
+        db.session.commit()
+
+        print("[*] Seeding Accounts (Admins & Verified GLA 2FE Students)...")
+        # System Admins
+        superadmin = User(name="Platform SuperAdmin", email="superadmin@classcatch.edu", role="superadmin", karma=1000, is_verified=True, is_onboarded=True)
+        superadmin.set_password("password123")
+
+        admin = User(name="GLA CSE Admin", email="admin@classcatch.edu", role="admin", karma=500, is_verified=True, is_onboarded=True)
+        admin.set_password("password123")
+
+        # Verified 2FE Students with Official @gla.ac.in Institutional Accounts
+        aarav = User(
+            name="Aarav Patel",
+            email="aarav.patel@gla.ac.in",
+            student_id="GLA26001",
+            role="cr",
+            karma=340,
+            college="GLA University, Mathura Campus",
+            department="CSE",
+            program="B.Tech CSE",
+            semester=3,
+            section="2FE",
+            is_verified=True,
+            is_onboarded=True
+        )
+        aarav.set_password("password123")
+
+        priya = User(
+            name="Priya Singh",
+            email="priya.singh@gla.ac.in",
+            student_id="GLA26002",
+            role="student",
+            karma=195,
+            college="GLA University, Mathura Campus",
+            department="CSE",
+            program="B.Tech CSE",
+            semester=3,
+            section="2FE",
+            is_verified=True,
+            is_onboarded=True
+        )
+        priya.set_password("password123")
+
+        rohit = User(
+            name="Rohit Verma",
+            email="rohit.verma@gla.ac.in",
+            student_id="GLA26003",
+            role="student",
+            karma=85,
+            college="GLA University, Mathura Campus",
+            department="CSE",
+            program="B.Tech CSE",
+            semester=3,
+            section="2FE",
+            is_verified=True,
+            is_onboarded=True
+        )
+        rohit.set_password("password123")
+
+        ananya = User(
+            name="Ananya Sharma",
+            email="ananya.sharma@gla.ac.in",
+            student_id="GLA26004",
+            role="student",
+            karma=60,
+            college="GLA University, Mathura Campus",
+            department="CSE",
+            program="B.Tech CSE",
+            semester=3,
+            section="2FE",
+            is_verified=True,
+            is_onboarded=True
+        )
+        ananya.set_password("password123")
+
+        db.session.add_all([superadmin, admin, aarav, priya, rohit, ananya])
+        db.session.commit()
+
+        # Mark roster entries registered
+        for u in [aarav, priya, rohit, ananya]:
+            re = RosterEntry.query.filter_by(email=u.email).first()
+            if re:
+                re.is_registered = True
+        db.session.commit()
+
+        print("[*] Creating Active 2FE Enrollments for Students...")
+        for student in [aarav, priya, rohit, ananya]:
+            enr = Enrollment(
+                user_id=student.id,
+                student_id=student.student_id,
+                college="GLA University, Mathura Campus",
+                department="CSE",
+                program="B.Tech CSE",
+                academic_year="2026-27",
+                semester=3,
+                section="2FE",
+                is_lateral=True,
+                status="approved",
+                is_active=True,
+                approved_by_id=admin.id
+            )
+            db.session.add(enr)
+        db.session.commit()
+
+        print("[*] Seeding 10 Real 2FE Courses (GLA B.Tech CSE Semester 3)...")
+        c1 = Course(code="BCSC 0009", name="Software Engineering", section="2FE", semester=3, department="CSE", academic_year="2026-27", is_lateral=True, instructor="Ruby Singh", room="AB-VI Room 306", schedule="Mon 4:00 PM, Tue 2:00 PM, Thu 11:00 AM")
+        c2 = Course(code="BCSC 1003", name="Database Management System", section="2FE", semester=3, department="CSE", academic_year="2026-27", is_lateral=True, instructor="Amit Kumar", room="AB-VI Room 306", schedule="Wed 1:00 PM, Thu 12:00 PM, Fri 11:00 AM")
+        c3 = Course(code="BCSC 1006", name="Data Structure And Algorithms", section="2FE", semester=3, department="CSE", academic_year="2026-27", is_lateral=True, instructor="Vikas Kumar", room="AB-VI Room 306", schedule="Mon 5:00 PM, Tue 11:00 AM, Fri 12:00 PM")
+        c4 = Course(code="BCSC 1802", name="Database Management Systems Lab", section="2FE", semester=3, department="CSE", academic_year="2026-27", is_lateral=True, instructor="Abhishek Sharma", room="AB-V Room 218C", schedule="Thu 4:00 PM - 6:00 PM")
+        c5 = Course(code="BCSC 1805", name="Data Structure And Algorithms Lab", section="2FE", semester=3, department="CSE", academic_year="2026-27", is_lateral=True, instructor="Vikas Kumar", room="AB-VI Room 306", schedule="Tue 4:00 PM - 6:00 PM, Fri 2:00 PM - 4:00 PM")
+        c6 = Course(code="BCSE 0031", name="Introduction To Frontend Engineering", section="2FE", semester=3, department="CSE", academic_year="2026-27", is_lateral=True, instructor="Shivam Kumar", room="AB-VI Room 306", schedule="Tue 10:00 AM, Wed 2:00 PM, Thu 3:00 PM")
+        c7 = Course(code="BCSE 0813", name="Introduction To Frontend Engineering Lab", section="2FE", semester=3, department="CSE", academic_year="2026-27", is_lateral=True, instructor="Shivam Kumar", room="AB-VI Room 306", schedule="Mon 10:00 AM - 12:00 PM")
+        c8 = Course(code="BELH 0020", name="English For Professional Purposes I", section="2FE", semester=3, department="CSE", academic_year="2026-27", is_lateral=True, instructor="Kiran Das", room="AB-VI Room 306", schedule="Mon 3:00 PM, Tue 3:00 PM, Wed 10:00 AM, Thu 10:00 AM")
+        c9 = Course(code="BMAS 0108", name="Probability And Statistics", section="2FE", semester=3, department="CSE", academic_year="2026-27", is_lateral=True, instructor="Ankita Dubey", room="AB-VI Room 306", schedule="Mon 2:00 PM, Wed 11:00 AM, Thu 2:00 PM, Fri 10:00 AM")
+        c10 = Course(code="BCSM 0001", name="Introduction To Cyber Security", section="2FE", semester=3, department="CSE", academic_year="2026-27", is_lateral=True, instructor="Shamsher Khan", room="AB-I Room 425", schedule="Thu 8:00 AM, Fri 8:00 AM")
+
+        courses = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10]
+        db.session.add_all(courses)
+        db.session.commit()
+
+        # CR Assignment
+        cr_assign = CRAssignment(user_id=aarav.id, course_id=c1.id, section="2FE", assigned_by_id=admin.id)
+        db.session.add(cr_assign)
+        db.session.commit()
+
+        print("[*] Seeding Official 2FE Timetable Slots (Monday - Friday)...")
+        # Monday
+        slots = [
+            TimetableSlot(course_id=c7.id, day_of_week="Monday", start_time="10:00 AM", end_time="11:00 AM", slot_type="Lab", building="AB-VI", room="306", faculty="Shivam Kumar", section="2FE"),
+            TimetableSlot(course_id=c7.id, day_of_week="Monday", start_time="11:00 AM", end_time="12:00 PM", slot_type="Lab", building="AB-VI", room="306", faculty="Shivam Kumar", section="2FE"),
+            TimetableSlot(course_id=c9.id, day_of_week="Monday", start_time="2:00 PM", end_time="3:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Ankita Dubey", section="2FE"),
+            TimetableSlot(course_id=c8.id, day_of_week="Monday", start_time="3:00 PM", end_time="4:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Kiran Das", section="2FE"),
+            TimetableSlot(course_id=c1.id, day_of_week="Monday", start_time="4:00 PM", end_time="5:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Ruby Singh", section="2FE"),
+            TimetableSlot(course_id=c3.id, day_of_week="Monday", start_time="5:00 PM", end_time="6:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Vikas Kumar", section="2FE"),
+
+            # Tuesday
+            TimetableSlot(course_id=c6.id, day_of_week="Tuesday", start_time="10:00 AM", end_time="11:00 AM", slot_type="Lecture", building="AB-VI", room="306", faculty="Shivam Kumar", section="2FE"),
+            TimetableSlot(course_id=c3.id, day_of_week="Tuesday", start_time="11:00 AM", end_time="12:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Vikas Kumar", section="2FE"),
+            TimetableSlot(course_id=c1.id, day_of_week="Tuesday", start_time="2:00 PM", end_time="3:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Ruby Singh", section="2FE"),
+            TimetableSlot(course_id=c8.id, day_of_week="Tuesday", start_time="3:00 PM", end_time="4:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Kiran Das", section="2FE"),
+            TimetableSlot(course_id=c5.id, day_of_week="Tuesday", start_time="4:00 PM", end_time="5:00 PM", slot_type="Lab", building="AB-VI", room="306", faculty="Vikas Kumar", section="2FE"),
+            TimetableSlot(course_id=c5.id, day_of_week="Tuesday", start_time="5:00 PM", end_time="6:00 PM", slot_type="Lab", building="AB-VI", room="306", faculty="Vikas Kumar", section="2FE"),
+
+            # Wednesday
+            TimetableSlot(course_id=c8.id, day_of_week="Wednesday", start_time="10:00 AM", end_time="11:00 AM", slot_type="Lecture", building="AB-VI", room="306", faculty="Kiran Das", section="2FE"),
+            TimetableSlot(course_id=c9.id, day_of_week="Wednesday", start_time="11:00 AM", end_time="12:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Ankita Dubey", section="2FE"),
+            TimetableSlot(course_id=c2.id, day_of_week="Wednesday", start_time="1:00 PM", end_time="2:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Amit Kumar", section="2FE"),
+            TimetableSlot(course_id=c6.id, day_of_week="Wednesday", start_time="2:00 PM", end_time="3:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Shivam Kumar", section="2FE"),
+
+            # Thursday
+            TimetableSlot(course_id=c10.id, day_of_week="Thursday", start_time="8:00 AM", end_time="9:00 AM", slot_type="Lecture", building="AB-I", room="425", faculty="Shamsher Khan", section="2FE"),
+            TimetableSlot(course_id=c8.id, day_of_week="Thursday", start_time="10:00 AM", end_time="11:00 AM", slot_type="Lecture", building="AB-VI", room="306", faculty="Kiran Das", section="2FE"),
+            TimetableSlot(course_id=c1.id, day_of_week="Thursday", start_time="11:00 AM", end_time="12:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Ruby Singh", section="2FE"),
+            TimetableSlot(course_id=c2.id, day_of_week="Thursday", start_time="12:00 PM", end_time="1:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Amit Kumar", section="2FE"),
+            TimetableSlot(course_id=c9.id, day_of_week="Thursday", start_time="2:00 PM", end_time="3:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Ankita Dubey", section="2FE"),
+            TimetableSlot(course_id=c6.id, day_of_week="Thursday", start_time="3:00 PM", end_time="4:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Shivam Kumar", section="2FE"),
+            TimetableSlot(course_id=c4.id, day_of_week="Thursday", start_time="4:00 PM", end_time="5:00 PM", slot_type="Lab", building="AB-V", room="218C", faculty="Abhishek Sharma", section="2FE"),
+            TimetableSlot(course_id=c4.id, day_of_week="Thursday", start_time="5:00 PM", end_time="6:00 PM", slot_type="Lab", building="AB-V", room="218C", faculty="Abhishek Sharma", section="2FE"),
+
+            # Friday
+            TimetableSlot(course_id=c10.id, day_of_week="Friday", start_time="8:00 AM", end_time="9:00 AM", slot_type="Lecture", building="AB-I", room="425", faculty="Shamsher Khan", section="2FE"),
+            TimetableSlot(course_id=c9.id, day_of_week="Friday", start_time="10:00 AM", end_time="11:00 AM", slot_type="Lecture", building="AB-VI", room="306", faculty="Ankita Dubey", section="2FE"),
+            TimetableSlot(course_id=c2.id, day_of_week="Friday", start_time="11:00 AM", end_time="12:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Amit Kumar", section="2FE"),
+            TimetableSlot(course_id=c3.id, day_of_week="Friday", start_time="12:00 PM", end_time="1:00 PM", slot_type="Lecture", building="AB-VI", room="306", faculty="Vikas Kumar", section="2FE"),
+            TimetableSlot(course_id=c5.id, day_of_week="Friday", start_time="2:00 PM", end_time="3:00 PM", slot_type="Lab", building="AB-VI", room="306", faculty="Vikas Kumar", section="2FE"),
+            TimetableSlot(course_id=c5.id, day_of_week="Friday", start_time="3:00 PM", end_time="4:00 PM", slot_type="Lab", building="AB-VI", room="306", faculty="Vikas Kumar", section="2FE")
+        ]
+        db.session.add_all(slots)
+        db.session.commit()
+
+        print("[*] Seeding Realistic 2FE Catch-up Lecture Summaries...")
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        summaries = [
+            Summary(
+                course_id=c3.id,
+                user_id=aarav.id,
+                date=today,
+                topic="Red-Black Trees Insertion & Color Invariants",
+                category="Lecture Notes",
+                content="Prof. Vikas Kumar covered Red-Black Tree rotation cases today.\nKey Takeaways:\n1. Root is always black.\n2. No two consecutive red nodes (Red property).\n3. Every simple path from a node to descendant leaves contains the same number of black nodes.\nHomework: Exercise 13.3 from Cormen (Cases 1, 2, and 3).",
+                helpful_count=18,
+                is_verified=True,
+                verified_by="Aarav Patel (CR)"
+            ),
+            Summary(
+                course_id=c2.id,
+                user_id=priya.id,
+                date=today,
+                topic="BCNF vs 3NF Decomposition & Lossless Join Tests",
+                category="Lecture Notes",
+                content="Dr. Amit Kumar discussed Boyec-Codd Normal Form decomposition algorithms.\nKey points:\n- Tested functional dependencies using closure attribute algorithm.\n- Covered dependency preservation tradeoff between 3NF and BCNF.\nMidterm alert: Questions from normalization algorithm will be on the 25-mark quiz.",
+                helpful_count=14,
+                is_verified=True,
+                verified_by="Aarav Patel (CR)"
+            ),
+            Summary(
+                course_id=c1.id,
+                user_id=rohit.id,
+                date=yesterday,
+                topic="Agile Scrum Framework & User Story Estimation",
+                category="Assignment",
+                content="Ruby Singh reviewed Sprint backlog planning and Planning Poker estimation technique.\nAssignment Assigned: In your 4-member teams, prepare the Sprint Backlog for Project Milestone 1 in Jira or Markdown by Friday 5 PM.",
+                helpful_count=9,
+                is_verified=False
+            ),
+            Summary(
+                course_id=c9.id,
+                user_id=ananya.id,
+                date=yesterday,
+                topic="Poisson Distribution & Central Limit Theorem Proofs",
+                category="Exam Prep",
+                content="Prof. Ankita Dubey solved 4 PYQ problems on Poisson approximations.\nFormula sheet notes uploaded in Academic Vault. Focus on λ = np derivations.",
+                helpful_count=12,
+                is_verified=True,
+                verified_by="Aarav Patel (CR)"
+            )
+        ]
+        db.session.add_all(summaries)
+        db.session.commit()
+
+        print("[*] Seeding Official Announcements for Section 2FE...")
+        announcements = [
+            Announcement(
+                course_id=c1.id,
+                user_id=admin.id,
+                title="📢 2FE Software Engineering Sprint 1 Submission Guidelines",
+                content="All Section 2FE teams must submit their Milestone 1 SRS document by Friday 5:00 PM via ClassCatch Academic Vault.",
+                target_scope="section",
+                target_section="2FE",
+                is_pinned=True
+            ),
+            Announcement(
+                course_id=c4.id,
+                user_id=admin.id,
+                title="🏢 DBMS Lab Room Change: Thursday Slot in AB-V Room 218C",
+                content="Please note that DBMS Lab (BCSC 1802) will take place in Block AB-V Computer Lab 218C as scheduled.",
+                target_scope="section",
+                target_section="2FE",
+                is_pinned=True
+            ),
+            Announcement(
+                user_id=admin.id,
+                title="🎓 GLA University: Midterm Examination Schedule 2026-27",
+                content="The 3rd Semester Mid-Term evaluations commence next month. Ensure your attendance meets the 75% institutional threshold.",
+                target_scope="college",
+                target_section="ALL",
+                is_pinned=False
+            )
+        ]
+        db.session.add_all(announcements)
+        db.session.commit()
+
+        print("[*] Seeding Academic Deadlines & Exam Calendar...")
+        deadlines = [
+            Deadline(
+                course_id=c1.id,
+                user_id=aarav.id,
+                title="Software Engineering Milestone 1 SRS",
+                due_date=today + timedelta(days=5),
+                category="Assignment",
+                priority=3,
+                description="Team submission of IEEE 830 compliant SRS document.",
+                is_official=True
+            ),
+            Deadline(
+                course_id=c3.id,
+                user_id=aarav.id,
+                title="DSA Lab Problem Set 3 (Trees & Graphs)",
+                due_date=today + timedelta(days=3),
+                category="Lab Submission",
+                priority=2,
+                description="Submit verified LeetCode solution links on portal.",
+                is_official=True
+            ),
+            Deadline(
+                course_id=c9.id,
+                user_id=admin.id,
+                title="Probability & Statistics Midterm Quiz",
+                due_date=today + timedelta(days=10),
+                category="Midterm Exam",
+                priority=3,
+                description="25 Marks written quiz on Units 1 and 2.",
+                is_official=True
+            )
+        ]
+        db.session.add_all(deadlines)
+        db.session.commit()
+
+        print("[*] Seeding Student Attendance Records (75% Threshold Calculations)...")
+        # Aarav has safe attendance (87.5%)
+        att1 = AttendanceRecord(user_id=aarav.id, course_id=c3.id, total_classes=32, attended_classes=28, target_percentage=75.0)
+        att2 = AttendanceRecord(user_id=aarav.id, course_id=c2.id, total_classes=30, attended_classes=27, target_percentage=75.0)
+        # Priya has high attendance
+        att3 = AttendanceRecord(user_id=priya.id, course_id=c1.id, total_classes=25, attended_classes=24, target_percentage=75.0)
+        # Rohit is at risk (66.7%, needs recovery)
+        att4 = AttendanceRecord(user_id=rohit.id, course_id=c3.id, total_classes=30, attended_classes=20, target_percentage=75.0)
+        db.session.add_all([att1, att2, att3, att4])
+        db.session.commit()
+
+        print("[*] Seeding Academic Vault Resources (PYQs & Notes)...")
+        res1 = Resource(
+            course_id=c3.id,
+            user_id=aarav.id,
+            title="DSA End-Sem Question Papers (2023 - 2025 Solved)",
+            category="PYQ & Solutions",
+            resource_url="https://drive.google.com/open?id=demo_gla_dsa_pyq",
+            description="Handwritten solutions for binary search tree and dynamic programming questions from previous university examinations.",
+            downloads=45,
+            helpful_count=23,
+            status="Approved",
+            is_featured=True
+        )
+        res2 = Resource(
+            course_id=c2.id,
+            user_id=priya.id,
+            title="DBMS Quick Revision Formula Sheet & Normalization Cheat Sheet",
+            category="Formula Sheet",
+            resource_url="https://drive.google.com/open?id=demo_gla_dbms_cheatsheet",
+            description="All relational algebra symbols, SQL query syntax, and normal form conditions summarized on 4 pages.",
+            downloads=38,
+            helpful_count=19,
+            status="Approved",
+            is_featured=True
+        )
+        res3 = Resource(
+            course_id=c9.id,
+            user_id=ananya.id,
+            title="Probability & Statistics Comprehensive Class Notes (Units 1-3)",
+            category="Handwritten Notes",
+            resource_url="https://drive.google.com/open?id=demo_gla_stats_notes",
+            description="Complete lecture notes with worked examples from Dr. Ankita Dubey's classes.",
+            downloads=29,
+            helpful_count=15,
+            status="Approved",
+            is_featured=False
+        )
+        db.session.add_all([res1, res2, res3])
+        db.session.commit()
+
+        print("\n========================================================")
+        print("[+] GLA UNIVERSITY 2FE PILOT DATABASE SUCCESSFULLY SEEDED!")
+        print("========================================================")
+        print("College: GLA University, Mathura Campus")
+        print("Department: Computer Science & Engineering (CSE)")
+        print("Section: 2FE (Lateral Entry, 3rd Semester, 2026-27)")
+        print(f"Courses Seeded: {len(courses)}")
+        print(f"Timetable Slots: {len(slots)}")
+        print(f"Leadership Records: {len(staff_records)}")
+        print(f"Approved Roster Entries: {len(roster_entries)}")
+        print("--------------------------------------------------------")
+        print("Demo Accounts:")
+        print("  SuperAdmin: superadmin@classcatch.edu (password123)")
+        print("  Admin:      admin@classcatch.edu      (password123)")
+        print("  CR Student: aarav.patel@gla.ac.in     (password123)")
+        print("  Student:    priya.singh@gla.ac.in     (password123)")
+        print("  Student:    rohit.verma@gla.ac.in     (password123)")
+        print("========================================================\n")
 
 if __name__ == '__main__':
     seed_database()

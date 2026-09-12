@@ -9,19 +9,23 @@ if not os.environ.get('TESTING'):
 from functools import wraps
 import csv
 import io
+import uuid
 
-from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, abort, send_from_directory, Response
+from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, abort, send_from_directory, send_file, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import (
     db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord,
-    Deadline, Resource, CRAssignment, Report, AuditLog, FeatureFlag, SystemSetting
+    Deadline, Resource, CRAssignment, Report, AuditLog, FeatureFlag, SystemSetting,
+    Enrollment, RosterEntry, TimetableSlot, AcademicStaff, StorageFile
 )
 from forms import (
     RegistrationForm, LoginForm, SummaryForm, ChatMessageForm,
     AnnouncementForm, AttendanceForm, DeadlineForm, ResourceForm, CourseForm,
     OnboardingForm, ReportForm, AdminUserEditForm, CRAssignmentForm,
-    BulkCourseImportForm, SystemSettingsForm
+    BulkCourseImportForm, SystemSettingsForm, RosterImportForm,
+    EnrollmentRequestForm, TimetableSlotForm, AssignSectionForm
 )
+from storage import handle_file_upload, get_storage_provider, is_allowed_file, MAX_FILE_SIZE_BYTES
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -117,7 +121,7 @@ def superadmin_required(f):
 
 @app.before_request
 def check_maintenance_and_suspension():
-    """Enforce account suspensions and platform maintenance mode."""
+    """Enforce account suspensions, verification, section enrollment, and platform maintenance mode."""
     # Enforce suspended status
     if current_user.is_authenticated and getattr(current_user, 'is_suspended', False):
         logout_user()
@@ -132,13 +136,31 @@ def check_maintenance_and_suspension():
             if not (current_user.is_authenticated and current_user.is_admin()):
                 return redirect(url_for('maintenance'))
 
+    # Enforce Student Email Verification & Section Enrollment Gate
+    if current_user.is_authenticated and current_user.role == 'student':
+        # 1. Verification Gate
+        if not getattr(current_user, 'is_verified', False):
+            exempt_prefixes = ['/static', '/logout', '/verify-email', '/unverified', '/resend-verification']
+            if not any(request.path.startswith(p) for p in exempt_prefixes):
+                return redirect(url_for('unverified_notice'))
+
+        # 2. Approved Section Enrollment Gate (Locked to 2FE for GLA pilot)
+        if getattr(current_user, 'is_verified', False) and not current_user.active_enrollment:
+            exempt_prefixes = ['/static', '/logout', '/enrollment-pending', '/enrollment/request-access', '/verify-email']
+            if not any(request.path.startswith(p) for p in exempt_prefixes):
+                return redirect(url_for('enrollment_pending'))
+
 
 @app.context_processor
 def inject_globals():
     """Inject common utility data, features, and settings into all Jinja templates."""
     all_courses = []
     try:
-        all_courses = Course.query.filter_by(is_archived=False).order_by(Course.code).all()
+        query = Course.query.filter_by(is_archived=False)
+        if current_user.is_authenticated and current_user.role == 'student':
+            active_sec = current_user.active_section
+            query = query.filter_by(section=active_sec)
+        all_courses = query.order_by(Course.code).all()
     except Exception:
         pass
     return {
@@ -146,7 +168,9 @@ def inject_globals():
         'current_year': datetime.now().year,
         'global_courses': all_courses,
         'is_feature_enabled': is_feature_enabled,
-        'get_system_setting': get_system_setting
+        'get_system_setting': get_system_setting,
+        'active_enrollment': current_user.active_enrollment if current_user.is_authenticated else None,
+        'active_section': current_user.active_section if current_user.is_authenticated else '2FE'
     }
 
 
@@ -156,7 +180,7 @@ def inject_globals():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """Handle new student registration."""
+    """Handle new student registration restricted to official GLA institutional emails."""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
 
@@ -167,26 +191,193 @@ def register():
 
     form = RegistrationForm()
     if form.validate_on_submit():
+        raw_email = form.email.data.strip().lower()
+
+        # Strict Server-Side Institutional Domain Check
+        is_test_mode = bool(os.environ.get('TESTING') or os.environ.get('ALLOW_TEST_EMAILS'))
+        if not raw_email.endswith('@gla.ac.in') and not raw_email.endswith('@classcatch.edu') and not is_test_mode:
+            flash('Access Restricted: Only official GLA University institutional emails (@gla.ac.in) are permitted.', 'danger')
+            return render_template('register.html', title='Join ClassCatch - GLA University', form=form)
+
+        token = uuid.uuid4().hex
         user = User(
             name=form.name.data.strip(),
-            email=form.email.data.strip().lower(),
+            email=raw_email,
             role='student',
-            is_onboarded=False
+            college='GLA University, Mathura Campus',
+            department='CSE',
+            program='B.Tech CSE',
+            semester=3,
+            section='2FE',
+            is_verified=False,
+            verification_token=token,
+            is_onboarded=True
         )
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
-        log_audit('user.registered', 'user', user.id, f"Registered new account: {user.email}")
+        log_audit('user.registered', 'user', user.id, f"Registered new GLA account: {user.email}")
 
-        flash('🎉 Welcome to ClassCatch! Your account is created. Please log in.', 'success')
+        flash(f'🎉 Institutional account created for {raw_email}! Please verify your GLA email to proceed. Verification link: /verify-email/{token}', 'success')
+        return redirect(url_for('unverified_notice', email=raw_email, token=token))
+
+    return render_template('register.html', title='Join ClassCatch - GLA University', form=form)
+
+
+@app.route('/unverified')
+def unverified_notice():
+    """Notice page for unverified GLA institutional accounts."""
+    email = request.args.get('email', '')
+    token = request.args.get('token', '')
+    if current_user.is_authenticated:
+        email = current_user.email
+        token = current_user.verification_token
+    return render_template('unverified.html', title='Verify Your GLA Institutional Email', email=email, token=token)
+
+
+@app.route('/resend-verification')
+def resend_verification():
+    """Resend email verification token."""
+    email = request.args.get('email', '')
+    if current_user.is_authenticated:
+        email = current_user.email
+
+    user = User.query.filter_by(email=email.strip().lower()).first() if email else None
+    if not user:
+        flash('User account not found.', 'danger')
         return redirect(url_for('login'))
 
-    return render_template('register.html', title='Join ClassCatch', form=form)
+    user.verification_token = uuid.uuid4().hex
+    db.session.commit()
+    flash(f'Verification token refreshed for {user.email}! Link: /verify-email/{user.verification_token}', 'info')
+    return redirect(url_for('unverified_notice', email=user.email, token=user.verification_token))
+
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    """
+    Verify institutional GLA email address and link to approved roster entry.
+    Enforces 'One User = One Active Class Enrollment' scoped to 2FE.
+    """
+    user = User.query.filter_by(verification_token=token).first()
+    if not user:
+        flash('Invalid, expired, or previously used email verification token.', 'danger')
+        return redirect(url_for('login'))
+
+    user.is_verified = True
+    user.verification_token = None
+
+    # Check official institutional roster
+    roster_entry = RosterEntry.query.filter_by(email=user.email).first()
+    if roster_entry:
+        # Pre-approved student found on official roster
+        for prev in user.enrollments:
+            prev.is_active = False
+
+        enrollment = Enrollment(
+            user_id=user.id,
+            student_id=roster_entry.student_id,
+            college='GLA University, Mathura Campus',
+            department='CSE',
+            program=roster_entry.program,
+            academic_year=roster_entry.academic_year,
+            semester=roster_entry.semester,
+            section=roster_entry.section,
+            is_lateral=True,
+            status='approved',
+            is_active=True
+        )
+        user.student_id = roster_entry.student_id
+        user.section = roster_entry.section
+        user.semester = roster_entry.semester
+        roster_entry.is_registered = True
+        db.session.add(enrollment)
+        db.session.commit()
+
+        login_user(user)
+        log_audit('user.verified', 'user', user.id, f"Verified GLA email and enrolled in {enrollment.section}")
+        flash('🎉 Your GLA institutional email has been verified and your section (2FE) enrollment is active! Welcome to ClassCatch.', 'success')
+        return redirect(url_for('index'))
+    else:
+        # Student has valid GLA email, but is NOT yet present on approved roster
+        existing_enrollment = Enrollment.query.filter_by(user_id=user.id).first()
+        if not existing_enrollment:
+            pending_enrollment = Enrollment(
+                user_id=user.id,
+                college='GLA University, Mathura Campus',
+                department='CSE',
+                program='B.Tech CSE',
+                academic_year='2026-27',
+                semester=3,
+                section='2FE',
+                is_lateral=True,
+                status='pending',
+                is_active=False
+            )
+            db.session.add(pending_enrollment)
+        db.session.commit()
+
+        login_user(user)
+        log_audit('user.verified', 'user', user.id, f"Verified GLA email; pending roster enrollment.")
+        flash("Your GLA account was verified, but we couldn't find your ClassCatch enrollment yet.", 'warning')
+        return redirect(url_for('enrollment_pending'))
+
+
+@app.route('/enrollment-pending')
+@login_required
+def enrollment_pending():
+    """State for verified GLA students awaiting active section approval by Admin."""
+    if current_user.active_enrollment:
+        return redirect(url_for('index'))
+
+    form = EnrollmentRequestForm()
+    latest_enrollment = Enrollment.query.filter_by(user_id=current_user.id).order_by(Enrollment.created_at.desc()).first()
+    return render_template(
+        'enrollment_pending.html',
+        title='Section Enrollment Pending - GLA University',
+        form=form,
+        enrollment=latest_enrollment
+    )
+
+
+@app.route('/enrollment/request-access', methods=['POST'])
+@login_required
+def request_access():
+    """Handle student access request with Roll Number / Student ID."""
+    form = EnrollmentRequestForm()
+    if form.validate_on_submit():
+        enrollment = Enrollment.query.filter_by(user_id=current_user.id).order_by(Enrollment.created_at.desc()).first()
+        if not enrollment:
+            enrollment = Enrollment(
+                user_id=current_user.id,
+                college='GLA University, Mathura Campus',
+                department='CSE',
+                program='B.Tech CSE',
+                academic_year='2026-27',
+                semester=3,
+                section='2FE',
+                is_lateral=True,
+                status='pending',
+                is_active=False
+            )
+            db.session.add(enrollment)
+
+        enrollment.student_id = form.student_id.data.strip()
+        enrollment.rejection_reason = None  # Clear previous rejection if re-requesting
+        current_user.student_id = form.student_id.data.strip()
+        db.session.commit()
+
+        log_audit('enrollment.requested', 'enrollment', enrollment.id, f"Requested 2FE access for Student ID: {enrollment.student_id}")
+        flash('📋 Enrollment request submitted to the GLA Department Coordinator. You will gain access immediately once approved.', 'success')
+        return redirect(url_for('enrollment_pending'))
+
+    flash('Please provide a valid University Roll Number / Student ID.', 'danger')
+    return redirect(url_for('enrollment_pending'))
 
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Handle student and administrator login."""
+    """Handle student and administrator login with institutional safeguards."""
     if current_user.is_authenticated:
         return redirect(url_for('admin_dashboard') if current_user.is_admin() else url_for('index'))
 
@@ -200,6 +391,16 @@ def login():
 
             login_user(user, remember=form.remember_me.data)
             log_audit('user.login', 'user', user.id, f"Logged in from role: {user.role}")
+
+            # Verification check for students
+            if user.role == 'student' and not user.is_verified:
+                flash('Please verify your GLA institutional email to activate full platform access.', 'warning')
+                return redirect(url_for('unverified_notice', email=user.email, token=user.verification_token))
+
+            # Enrollment check for students
+            if user.role == 'student' and not user.active_enrollment:
+                flash("Your GLA account was verified, but we couldn't find your ClassCatch enrollment yet.", 'warning')
+                return redirect(url_for('enrollment_pending'))
 
             flash(f'👋 Welcome back, {user.name}!', 'success')
             next_page = request.args.get('next')
@@ -240,7 +441,8 @@ def index():
     - Features Today's Schedule & What's Next Tracker.
     - Highlights upcoming academic deadlines & exam countdowns.
     """
-    courses = Course.query.order_by(Course.code).all()
+    active_sec = current_user.active_section if current_user.is_authenticated and current_user.role == 'student' else '2FE'
+    courses = Course.query.filter_by(section=active_sec, is_archived=False).order_by(Course.code).all()
     today_summaries = Summary.query.filter_by(date=date.today()).order_by(Summary.created_at.desc()).all()
     recent_summaries = Summary.query.order_by(Summary.date.desc(), Summary.created_at.desc()).limit(6).all()
     urgent_announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
@@ -302,8 +504,9 @@ def catchup_hub():
     day_abbr = target_date.strftime('%a')
     day_name = target_date.strftime('%A, %B %d, %Y')
 
-    # 1. Scheduled courses on this day
-    all_courses = Course.query.order_by(Course.code).all()
+    # 1. Scheduled courses on this day scoped to active section
+    active_sec = current_user.active_section if current_user.is_authenticated and current_user.role == 'student' else '2FE'
+    all_courses = Course.query.filter_by(section=active_sec, is_archived=False).order_by(Course.code).all()
     scheduled_courses = [c for c in all_courses if day_abbr in c.schedule]
     if not scheduled_courses:
         scheduled_courses = all_courses
@@ -499,6 +702,11 @@ def course_detail(course_id):
     - Tab 4: Timetable & Room Availability
     """
     course = Course.query.get_or_404(course_id)
+    if current_user.is_authenticated and current_user.role == 'student':
+        if course.section != current_user.active_section:
+            flash(f"Access restricted: Subject {course.code} belongs to section {course.section}.", "danger")
+            return redirect(url_for('index'))
+
     active_tab = request.args.get('tab', 'summaries')
     date_filter = request.args.get('date')
 
@@ -1951,6 +2159,494 @@ def admin_audit_logs():
     return render_template('admin/audit_logs.html', title='System Audit Logs', logs=logs, action_filter=action_filter)
 
 
+@app.route('/timetable')
+def timetable_view():
+    """
+    Weekly & Daily interactive timetable for GLA University.
+    Desktop: Full weekly schedule grid (Monday - Friday).
+    Mobile: Day-based cards with current class highlighting.
+    Scoped to the student's active section (default: 2FE).
+    """
+    active_sec = current_user.active_section if current_user.is_authenticated and current_user.role == 'student' else '2FE'
+    selected_day = request.args.get('day', date.today().strftime('%A'))
+    if selected_day not in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']:
+        selected_day = 'Monday'
+
+    slots = TimetableSlot.query.filter_by(section=active_sec).all()
+
+    # Organize slots by day
+    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    timetable_by_day = {d: [] for d in days}
+    for slot in slots:
+        if slot.day_of_week in timetable_by_day:
+            timetable_by_day[slot.day_of_week].append(slot)
+
+    # Sort each day's slots chronologically
+    time_order = {
+        '8:00 AM': 1, '10:00 AM': 2, '11:00 AM': 3, '12:00 PM': 4,
+        '1:00 PM': 5, '2:00 PM': 6, '3:00 PM': 7, '4:00 PM': 8, '5:00 PM': 9
+    }
+    for d in days:
+        timetable_by_day[d].sort(key=lambda s: time_order.get(s.start_time, 99))
+
+    staff = AcademicStaff.query.all()
+
+    return render_template(
+        'timetable.html',
+        title=f"Class Timetable - Section {active_sec} (GLA University)",
+        section=active_sec,
+        selected_day=selected_day,
+        days=days,
+        timetable_by_day=timetable_by_day,
+        academic_staff=staff,
+        total_slots=len(slots)
+    )
+
+
+@app.route('/admin/timetable', methods=['GET', 'POST'])
+@admin_required
+def admin_timetable():
+    """Manage timetable slots for sections."""
+    form = TimetableSlotForm()
+    courses = Course.query.filter_by(is_archived=False).order_by(Course.code).all()
+    form.course_id.choices = [(c.id, f"{c.code} - {c.name} ({c.section})") for c in courses]
+
+    if form.validate_on_submit():
+        slot = TimetableSlot(
+            course_id=form.course_id.data,
+            day_of_week=form.day_of_week.data,
+            start_time=form.start_time.data.strip(),
+            end_time=form.end_time.data.strip(),
+            slot_type=form.slot_type.data,
+            building=form.building.data.strip(),
+            room=form.room.data.strip(),
+            faculty=form.faculty.data.strip() if form.faculty.data else None,
+            section=form.section.data.strip()
+        )
+        db.session.add(slot)
+        db.session.commit()
+        log_audit('timetable.created', 'timetable', slot.id, f"Added slot {slot.course.code} on {slot.day_of_week} ({slot.time_range})")
+        flash(f"Timetable slot created for {slot.course.code} on {slot.day_of_week}!", 'success')
+        return redirect(url_for('admin_timetable'))
+
+    slots = TimetableSlot.query.order_by(TimetableSlot.day_of_week, TimetableSlot.start_time).all()
+    return render_template('admin/timetable.html', title='Timetable Management', slots=slots, form=form)
+
+
+@app.route('/admin/timetable/<int:slot_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_timetable_slot(slot_id):
+    """Delete a timetable slot."""
+    slot = db.session.get(TimetableSlot, slot_id)
+    if not slot:
+        abort(404)
+    db.session.delete(slot)
+    db.session.commit()
+    log_audit('timetable.deleted', 'timetable', slot_id, f"Deleted timetable slot #{slot_id}")
+    flash("Timetable slot removed successfully.", "info")
+    return redirect(url_for('admin_timetable'))
+
+
+# ==========================================
+# Admin Enrollment & Roster Management
+# ==========================================
+
+@app.route('/admin/enrollment')
+@admin_required
+def admin_enrollment():
+    """Admin Enrollment and Roster Control Center."""
+    status_filter = request.args.get('status', '')
+    query = request.args.get('q', '').strip()
+
+    enrollment_q = Enrollment.query
+    if status_filter:
+        enrollment_q = enrollment_q.filter_by(status=status_filter)
+    if query:
+        search_pattern = f"%{query}%"
+        enrollment_q = enrollment_q.join(User).filter(
+            (User.name.ilike(search_pattern)) |
+            (User.email.ilike(search_pattern)) |
+            (Enrollment.student_id.ilike(search_pattern))
+        )
+
+    enrollments = enrollment_q.order_by(Enrollment.created_at.desc()).all()
+    pending_requests = Enrollment.query.filter_by(status='pending').order_by(Enrollment.created_at.desc()).all()
+    roster_entries = RosterEntry.query.order_by(RosterEntry.created_at.desc()).all()
+
+    stats = {
+        'total_enrolled': Enrollment.query.filter_by(is_active=True, status='approved').count(),
+        'enrolled_2fe': Enrollment.query.filter_by(section='2FE', is_active=True, status='approved').count(),
+        'pending_count': len(pending_requests),
+        'roster_total': len(roster_entries),
+        'roster_registered': RosterEntry.query.filter_by(is_registered=True).count()
+    }
+
+    assign_form = AssignSectionForm()
+
+    return render_template(
+        'admin/enrollment.html',
+        title='Enrollment & Roster Control',
+        enrollments=enrollments,
+        pending_requests=pending_requests,
+        roster_entries=roster_entries,
+        stats=stats,
+        status_filter=status_filter,
+        query=query,
+        assign_form=assign_form
+    )
+
+
+@app.route('/admin/enrollment/<int:id>/approve', methods=['POST'])
+@admin_required
+def admin_approve_enrollment(id):
+    """Approve a pending student enrollment request."""
+    enrollment = db.session.get(Enrollment, id)
+    if not enrollment:
+        abort(404)
+
+    # Deactivate any other active enrollments for this student
+    for prev in Enrollment.query.filter_by(user_id=enrollment.user_id, is_active=True).all():
+        if prev.id != enrollment.id:
+            prev.is_active = False
+
+    enrollment.status = 'approved'
+    enrollment.is_active = True
+    enrollment.approved_by_id = current_user.id
+    enrollment.rejection_reason = None
+    enrollment.user.section = enrollment.section
+    if enrollment.student_id:
+        enrollment.user.student_id = enrollment.student_id
+
+    db.session.commit()
+    log_audit('enrollment.approved', 'enrollment', enrollment.id, f"Approved {enrollment.user.email} for section {enrollment.section}")
+    flash(f"Approved enrollment for {enrollment.user.name} ({enrollment.user.email}) in section {enrollment.section}!", "success")
+    return redirect(url_for('admin_enrollment'))
+
+
+@app.route('/admin/enrollment/<int:id>/reject', methods=['POST'])
+@admin_required
+def admin_reject_enrollment(id):
+    """Reject a pending student enrollment request with reason."""
+    enrollment = db.session.get(Enrollment, id)
+    if not enrollment:
+        abort(404)
+
+    reason = request.form.get('rejection_reason', 'Details could not be verified with university records.')
+    enrollment.status = 'rejected'
+    enrollment.is_active = False
+    enrollment.rejection_reason = reason
+    db.session.commit()
+
+    log_audit('enrollment.rejected', 'enrollment', enrollment.id, f"Rejected {enrollment.user.email}: {reason}")
+    flash(f"Rejected enrollment request for {enrollment.user.name}.", "warning")
+    return redirect(url_for('admin_enrollment'))
+
+
+@app.route('/admin/enrollment/<int:id>/move', methods=['POST'])
+@admin_required
+def admin_move_enrollment(id):
+    """Reassign a student to a different section while maintaining audit history."""
+    enrollment = db.session.get(Enrollment, id)
+    if not enrollment:
+        abort(404)
+
+    new_section = request.form.get('section', '2FE').strip().upper()
+    new_semester = int(request.form.get('semester', enrollment.semester))
+    reason = request.form.get('reason', 'Administrative section transfer.')
+
+    # Mark old enrollment inactive
+    enrollment.is_active = False
+    enrollment.status = 'inactive'
+
+    # Create new active enrollment
+    new_enrollment = Enrollment(
+        user_id=enrollment.user_id,
+        student_id=enrollment.student_id,
+        college=enrollment.college,
+        department=enrollment.department,
+        program=enrollment.program,
+        academic_year=enrollment.academic_year,
+        semester=new_semester,
+        section=new_section,
+        is_lateral=enrollment.is_lateral,
+        status='approved',
+        is_active=True,
+        approved_by_id=current_user.id
+    )
+    enrollment.user.section = new_section
+    enrollment.user.semester = new_semester
+
+    db.session.add(new_enrollment)
+    db.session.commit()
+
+    log_audit('enrollment.moved', 'enrollment', new_enrollment.id, f"Moved {enrollment.user.email} from {enrollment.section} to {new_section}. Reason: {reason}")
+    flash(f"Successfully reassigned {enrollment.user.name} to section {new_section}!", "success")
+    return redirect(url_for('admin_enrollment'))
+
+
+@app.route('/admin/enrollment/import', methods=['GET', 'POST'])
+@admin_required
+def admin_import_roster():
+    """Import official student roster from CSV with preview and validation."""
+    form = RosterImportForm()
+    errors = []
+
+    if form.validate_on_submit():
+        csv_text = form.csv_data.data.strip()
+        reader = csv.reader(io.StringIO(csv_text))
+        header = None
+        imported_count = 0
+
+        for row_idx, row in enumerate(reader, 1):
+            if not row or not any(row):
+                continue
+            if header is None:
+                header = [c.strip().lower() for c in row]
+                continue
+
+            row_data = [c.strip() for c in row]
+            if len(row_data) < 3:
+                errors.append(f"Row {row_idx}: Insufficient columns.")
+                continue
+
+            email = row_data[0].lower()
+            name = row_data[1]
+            student_id = row_data[2] if len(row_data) > 2 else ''
+            section = row_data[3] if len(row_data) > 3 and row_data[3] else '2FE'
+            program = row_data[4] if len(row_data) > 4 and row_data[4] else 'B.Tech CSE'
+            try:
+                sem = int(row_data[5]) if len(row_data) > 5 and row_data[5] else 3
+            except ValueError:
+                sem = 3
+            acad_year = row_data[6] if len(row_data) > 6 and row_data[6] else '2026-27'
+
+            # Domain check
+            if not email.endswith('@gla.ac.in') and not email.endswith('@classcatch.edu') and not os.environ.get('ALLOW_TEST_EMAILS'):
+                errors.append(f"Row {row_idx}: Email '{email}' does not belong to GLA domain (@gla.ac.in).")
+                continue
+
+            # Update or create RosterEntry
+            existing_roster = RosterEntry.query.filter_by(email=email).first()
+            if existing_roster:
+                existing_roster.name = name
+                existing_roster.student_id = student_id
+                existing_roster.section = section
+                existing_roster.program = program
+                existing_roster.semester = sem
+                existing_roster.academic_year = acad_year
+            else:
+                new_entry = RosterEntry(
+                    email=email,
+                    name=name,
+                    student_id=student_id,
+                    section=section,
+                    program=program,
+                    semester=sem,
+                    academic_year=acad_year,
+                    is_registered=False
+                )
+                db.session.add(new_entry)
+
+            # Auto-upgrade registered pending user if already verified
+            reg_user = User.query.filter_by(email=email).first()
+            if reg_user:
+                for prev in reg_user.enrollments:
+                    prev.is_active = False
+                active_enr = Enrollment(
+                    user_id=reg_user.id,
+                    student_id=student_id,
+                    college='GLA University, Mathura Campus',
+                    department='CSE',
+                    program=program,
+                    academic_year=acad_year,
+                    semester=sem,
+                    section=section,
+                    is_lateral=True,
+                    status='approved',
+                    is_active=True,
+                    approved_by_id=current_user.id
+                )
+                reg_user.student_id = student_id
+                reg_user.section = section
+                reg_user.is_verified = True
+                db.session.add(active_enr)
+
+            imported_count += 1
+
+        db.session.commit()
+        log_audit('roster.imported', 'roster', None, f"Imported {imported_count} roster entries via CSV.")
+        flash(f"Successfully imported {imported_count} roster entries! Matching students were enrolled.", "success")
+        if errors:
+            flash(f"Encountered {len(errors)} warnings during import: {errors[:3]}", "warning")
+        return redirect(url_for('admin_enrollment'))
+
+    return render_template('admin/roster_import.html', title='Import Student Roster', form=form, errors=errors)
+
+
+@app.route('/admin/enrollment/template.csv')
+@admin_required
+def admin_roster_template():
+    """Download official CSV template for roster import."""
+    template_content = "email,name,student_id,section,program,semester,academic_year\n" \
+                       "student1@gla.ac.in,Student One,GLA10001,2FE,B.Tech CSE,3,2026-27\n" \
+                       "student2@gla.ac.in,Student Two,GLA10002,2FE,B.Tech CSE,3,2026-27\n"
+    return Response(
+        template_content,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=gla_roster_template.csv"}
+    )
+
+
+# ==========================================
+# Admin Storage & Vault Asset Console
+# ==========================================
+
+@app.route('/admin/storage')
+@admin_required
+def admin_storage():
+    """Admin Storage Console for viewing and managing uploaded assets."""
+    type_filter = request.args.get('type', '')
+    query = request.args.get('q', '').strip()
+
+    files_q = StorageFile.query
+    if type_filter:
+        files_q = files_q.filter_by(file_type=type_filter)
+    if query:
+        search_pattern = f"%{query}%"
+        files_q = files_q.filter(
+            (StorageFile.original_filename.ilike(search_pattern)) |
+            (StorageFile.section.ilike(search_pattern))
+        )
+
+    files = files_q.order_by(StorageFile.created_at.desc()).all()
+    total_bytes = sum(f.file_size for f in StorageFile.query.all())
+
+    stats = {
+        'total_files': StorageFile.query.count(),
+        'total_size_mb': f"{total_bytes / (1024 * 1024):.2f}",
+        'provider': os.environ.get('STORAGE_PROVIDER', 'local').upper(),
+        'pdf_count': StorageFile.query.filter_by(file_type='pdf').count(),
+        'image_count': StorageFile.query.filter_by(file_type='image').count(),
+        'doc_count': StorageFile.query.filter_by(file_type='document').count()
+    }
+
+    courses = Course.query.filter_by(is_archived=False).order_by(Course.code).all()
+    return render_template(
+        'admin/storage.html',
+        title='Storage & Vault Asset Management',
+        files=files,
+        stats=stats,
+        type_filter=type_filter,
+        query=query,
+        courses=courses
+    )
+
+
+@app.route('/admin/storage/upload', methods=['POST'])
+@admin_required
+def admin_upload_file():
+    """Admin upload file through the storage abstraction."""
+    uploaded_file = request.files.get('file')
+    course_id = request.form.get('course_id', type=int)
+    section = request.form.get('section', '2FE')
+
+    record, err = handle_file_upload(uploaded_file, current_user.id, course_id, section)
+    if err:
+        flash(f"Upload failed: {err}", "danger")
+    else:
+        log_audit('storage.upload', 'storage_file', record.id, f"Uploaded {record.original_filename} ({record.formatted_size})")
+        flash(f"File '{record.original_filename}' successfully stored in {record.storage_provider.upper()} storage!", "success")
+
+    return redirect(url_for('admin_storage'))
+
+
+@app.route('/storage/download/<int:file_id>')
+@login_required
+def storage_download(file_id):
+    """Secure download endpoint with section and role authorization."""
+    file_record = db.session.get(StorageFile, file_id)
+    if not file_record or file_record.status == 'Deleted':
+        abort(404)
+
+    # Scoping check: Students can only access assets of their active section
+    if current_user.role == 'student' and file_record.section != current_user.active_section:
+        flash(f"Access restricted: File belongs to section {file_record.section}.", "danger")
+        return redirect(url_for('index'))
+
+    provider = get_storage_provider()
+    path_or_url = provider.get_path_or_url(file_record.storage_path)
+
+    if file_record.storage_provider == 'local':
+        if not os.path.exists(path_or_url):
+            abort(404)
+        return send_file(
+            path_or_url,
+            as_attachment=True,
+            download_name=file_record.original_filename,
+            mimetype=file_record.mime_type
+        )
+    else:
+        # S3 presigned URL redirect
+        return redirect(path_or_url)
+
+
+@app.route('/admin/storage/<int:file_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_storage_file(file_id):
+    """Delete a file from storage and database."""
+    file_record = db.session.get(StorageFile, file_id)
+    if not file_record:
+        abort(404)
+
+    provider = get_storage_provider()
+    provider.delete(file_record.storage_path)
+    file_name = file_record.original_filename
+
+    db.session.delete(file_record)
+    db.session.commit()
+
+    log_audit('storage.deleted', 'storage_file', file_id, f"Deleted file {file_name}")
+    flash(f"File '{file_name}' permanently deleted.", "info")
+    return redirect(url_for('admin_storage'))
+
+
+@app.route('/admin/storage/<int:file_id>/archive', methods=['POST'])
+@admin_required
+def admin_archive_storage_file(file_id):
+    """Archive a storage file."""
+    file_record = db.session.get(StorageFile, file_id)
+    if not file_record:
+        abort(404)
+    file_record.status = 'Archived'
+    db.session.commit()
+    log_audit('storage.archived', 'storage_file', file_id, f"Archived file {file_record.original_filename}")
+    flash(f"File '{file_record.original_filename}' marked as archived.", "info")
+    return redirect(url_for('admin_storage'))
+
+
+@app.route('/admin/storage/cleanup', methods=['POST'])
+@admin_required
+def admin_storage_cleanup():
+    """Scan local storage directory and clean up orphan files."""
+    provider = get_storage_provider()
+    cleaned = 0
+    if hasattr(provider, 'base_dir') and os.path.exists(provider.base_dir):
+        known_paths = {f.filename for f in StorageFile.query.all()}
+        for fname in os.listdir(provider.base_dir):
+            if fname not in known_paths:
+                full_p = os.path.join(provider.base_dir, fname)
+                if os.path.isfile(full_p):
+                    try:
+                        os.remove(full_p)
+                        cleaned += 1
+                    except OSError:
+                        pass
+
+    log_audit('storage.cleanup', 'storage', None, f"Cleaned {cleaned} orphan files.")
+    flash(f"Storage cleanup complete: Removed {cleaned} orphan files.", "success")
+    return redirect(url_for('admin_storage'))
+
+
 @app.route('/admin/export/<string:entity>')
 @admin_required
 def admin_export_csv(entity):
@@ -1963,9 +2659,25 @@ def admin_export_csv(entity):
         for u in User.query.order_by(User.id).all():
             writer.writerow([u.id, u.name, u.email, u.role, u.karma, u.college, u.program, u.semester, u.section, u.is_suspended, u.created_at])
     elif entity == 'courses':
-        writer.writerow(['ID', 'Code', 'Name', 'Section', 'Semester', 'Instructor', 'Room', 'Schedule', 'Status', 'Archived'])
+        writer.writerow(['ID', 'Code', 'Name', 'Section', 'Semester', 'Department', 'Academic Year', 'Instructor', 'Room', 'Schedule', 'Status', 'Archived'])
         for c in Course.query.order_by(Course.id).all():
-            writer.writerow([c.id, c.code, c.name, c.section, c.semester, c.instructor, c.room, c.schedule, c.status, c.is_archived])
+            writer.writerow([c.id, c.code, c.name, c.section, c.semester, c.department, c.academic_year, c.instructor, c.room, c.schedule, c.status, c.is_archived])
+    elif entity == 'enrollments':
+        writer.writerow(['ID', 'Student Name', 'Email', 'Student ID', 'Section', 'Semester', 'Program', 'Academic Year', 'Status', 'Active', 'Created At'])
+        for e in Enrollment.query.order_by(Enrollment.id).all():
+            writer.writerow([e.id, e.user.name if e.user else '', e.user.email if e.user else '', e.student_id, e.section, e.semester, e.program, e.academic_year, e.status, e.is_active, e.created_at])
+    elif entity == 'roster':
+        writer.writerow(['ID', 'Email', 'Name', 'Student ID', 'Section', 'Program', 'Semester', 'Academic Year', 'Registered', 'Created At'])
+        for r in RosterEntry.query.order_by(RosterEntry.id).all():
+            writer.writerow([r.id, r.email, r.name, r.student_id, r.section, r.program, r.semester, r.academic_year, r.is_registered, r.created_at])
+    elif entity == 'timetable':
+        writer.writerow(['ID', 'Course Code', 'Course Name', 'Day', 'Start Time', 'End Time', 'Type', 'Building', 'Room', 'Faculty', 'Section'])
+        for t in TimetableSlot.query.order_by(TimetableSlot.id).all():
+            writer.writerow([t.id, t.course.code if t.course else '', t.course.name if t.course else '', t.day_of_week, t.start_time, t.end_time, t.slot_type, t.building, t.room, t.faculty, t.section])
+    elif entity == 'storage':
+        writer.writerow(['ID', 'Filename', 'Original Name', 'Type', 'Size (Bytes)', 'Provider', 'Section', 'Status', 'Uploader Email', 'Created At'])
+        for sf in StorageFile.query.order_by(StorageFile.id).all():
+            writer.writerow([sf.id, sf.filename, sf.original_filename, sf.file_type, sf.file_size, sf.storage_provider, sf.section, sf.status, sf.uploader.email if sf.uploader else '', sf.created_at])
     elif entity == 'resources':
         writer.writerow(['ID', 'Course', 'Title', 'Category', 'URL', 'Author', 'Status', 'Downloads', 'Helpful Count', 'Created At'])
         for r in Resource.query.order_by(Resource.id).all():
@@ -2007,10 +2719,16 @@ def init_db():
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS college VARCHAR(120) DEFAULT \'GLA University\';',
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS program VARCHAR(100) DEFAULT \'B.Tech CSE\';',
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS semester INTEGER DEFAULT 5;',
-                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS section VARCHAR(20) DEFAULT \'A\';',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS section VARCHAR(20) DEFAULT \'2FE\';',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id VARCHAR(50);',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(100);',
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;',
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_onboarded BOOLEAN DEFAULT TRUE;',
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;',
+                        'ALTER TABLE courses ADD COLUMN IF NOT EXISTS department VARCHAR(50) DEFAULT \'CSE\';',
+                        'ALTER TABLE courses ADD COLUMN IF NOT EXISTS academic_year VARCHAR(20) DEFAULT \'2026-27\';',
+                        'ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_lateral BOOLEAN DEFAULT TRUE;',
                         'ALTER TABLE resources ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT \'Approved\';',
                         'ALTER TABLE resources ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE;',
                         'ALTER TABLE resources ADD COLUMN IF NOT EXISTS rejection_reason TEXT;',
@@ -2049,67 +2767,28 @@ def init_db():
                 SystemSetting(key="attendance_threshold", value="75.0", description="Institutional minimum attendance target percentage"),
                 SystemSetting(key="maintenance_mode", value="false", description="Restricts student access for scheduled maintenance"),
                 SystemSetting(key="registration_enabled", value="true", description="Allow new student registrations"),
-                SystemSetting(key="default_semester", value="5", description="Default active academic semester")
+                SystemSetting(key="default_semester", value="3", description="Default active academic semester"),
+                SystemSetting(key="college_name", value="GLA University, Mathura Campus", description="Active pilot institution")
             ]
             db.session.add_all(default_settings)
             db.session.commit()
 
         if Course.query.count() == 0:
-            sample_courses = [
-                Course(
-                    name="Database Management Systems",
-                    code="CSE-301",
-                    section="A",
-                    semester=5,
-                    instructor="Dr. R. Sharma",
-                    room="Room 304 (Block B)",
-                    schedule="Mon, Wed, Fri (10:00 AM - 11:00 AM)",
-                    status="Scheduled"
-                ),
-                Course(
-                    name="Operating Systems",
-                    code="CSE-302",
-                    section="A",
-                    semester=5,
-                    instructor="Prof. Anjali Verma",
-                    room="Lecture Theater 2",
-                    schedule="Tue, Thu (11:30 AM - 1:00 PM)",
-                    status="Scheduled"
-                ),
-                Course(
-                    name="Data Structures & Algorithms",
-                    code="CSE-201",
-                    section="B",
-                    semester=3,
-                    instructor="Dr. Vikram Patel",
-                    room="Computer Lab 1",
-                    schedule="Mon, Wed (02:00 PM - 03:30 PM)",
-                    status="Scheduled"
-                ),
-                Course(
-                    name="Computer Networks",
-                    code="CSE-303",
-                    section="A",
-                    semester=5,
-                    instructor="Prof. Sneha Kulkarni",
-                    room="Room 201 (Block A)",
-                    schedule="Tue, Fri (09:00 AM - 10:30 AM)",
-                    status="Scheduled"
-                ),
-                Course(
-                    name="Software Engineering",
-                    code="CSE-401",
-                    section="C",
-                    semester=7,
-                    instructor="Dr. Arvind Gupta",
-                    room="Seminar Hall 3",
-                    schedule="Thu, Fri (03:30 PM - 05:00 PM)",
-                    status="Scheduled"
-                )
+            gla_2fe_courses = [
+                Course(code="BCSC 0009", name="Software Engineering", section="2FE", semester=3, department="CSE", academic_year="2026-27", instructor="Ruby Singh", room="AB-VI Room 306", schedule="Mon 4:00 PM, Tue 2:00 PM, Thu 11:00 AM"),
+                Course(code="BCSC 1003", name="Database Management System", section="2FE", semester=3, department="CSE", academic_year="2026-27", instructor="Amit Kumar", room="AB-VI Room 306", schedule="Wed 1:00 PM, Thu 12:00 PM, Fri 11:00 AM"),
+                Course(code="BCSC 1006", name="Data Structure And Algorithms", section="2FE", semester=3, department="CSE", academic_year="2026-27", instructor="Vikas Kumar", room="AB-VI Room 306", schedule="Mon 5:00 PM, Tue 11:00 AM, Fri 12:00 PM"),
+                Course(code="BCSC 1802", name="Database Management Systems Lab", section="2FE", semester=3, department="CSE", academic_year="2026-27", instructor="Abhishek Sharma", room="AB-V Room 218C", schedule="Thu 4:00 PM - 6:00 PM"),
+                Course(code="BCSC 1805", name="Data Structure And Algorithms Lab", section="2FE", semester=3, department="CSE", academic_year="2026-27", instructor="Vikas Kumar", room="AB-VI Room 306", schedule="Tue 4:00 PM - 6:00 PM, Fri 2:00 PM - 4:00 PM"),
+                Course(code="BCSE 0031", name="Introduction To Frontend Engineering", section="2FE", semester=3, department="CSE", academic_year="2026-27", instructor="Shivam Kumar", room="AB-VI Room 306", schedule="Tue 10:00 AM, Wed 2:00 PM, Thu 3:00 PM"),
+                Course(code="BCSE 0813", name="Introduction To Frontend Engineering Lab", section="2FE", semester=3, department="CSE", academic_year="2026-27", instructor="Shivam Kumar", room="AB-VI Room 306", schedule="Mon 10:00 AM - 12:00 PM"),
+                Course(code="BELH 0020", name="English For Professional Purposes I", section="2FE", semester=3, department="CSE", academic_year="2026-27", instructor="Kiran Das", room="AB-VI Room 306", schedule="Mon 3:00 PM, Tue 3:00 PM, Wed 10:00 AM, Thu 10:00 AM"),
+                Course(code="BMAS 0108", name="Probability And Statistics", section="2FE", semester=3, department="CSE", academic_year="2026-27", instructor="Ankita Dubey", room="AB-VI Room 306", schedule="Mon 2:00 PM, Wed 11:00 AM, Thu 2:00 PM, Fri 10:00 AM"),
+                Course(code="BCSM 0001", name="Introduction To Cyber Security", section="2FE", semester=3, department="CSE", academic_year="2026-27", instructor="Shamsher Khan", room="AB-I Room 425", schedule="Thu 8:00 AM, Fri 8:00 AM")
             ]
-            db.session.add_all(sample_courses)
+            db.session.add_all(gla_2fe_courses)
             db.session.commit()
-            print("Auto-seeded default courses.")
+            print("Auto-seeded GLA University 2FE Pilot courses.")
 
 
 if __name__ == '__main__':

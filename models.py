@@ -23,9 +23,13 @@ class User(UserMixin, db.Model):
 
     # Student Profile / Onboarding Details
     college = db.Column(db.String(120), default='GLA University', nullable=True)
+    department = db.Column(db.String(100), default='CSE', nullable=True)
     program = db.Column(db.String(100), default='B.Tech CSE', nullable=True)
-    semester = db.Column(db.Integer, default=5, nullable=False)
-    section = db.Column(db.String(20), default='A', nullable=False)
+    semester = db.Column(db.Integer, default=3, nullable=False)
+    section = db.Column(db.String(20), default='2FE', nullable=False)
+    student_id = db.Column(db.String(50), nullable=True, index=True)
+    is_verified = db.Column(db.Boolean, default=False, nullable=False)
+    verification_token = db.Column(db.String(100), nullable=True)
     is_suspended = db.Column(db.Boolean, default=False, nullable=False)
     is_onboarded = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -38,6 +42,21 @@ class User(UserMixin, db.Model):
     deadlines = db.relationship('Deadline', backref='author', lazy=True, cascade='all, delete-orphan')
     resources = db.relationship('Resource', backref='author', lazy=True, cascade='all, delete-orphan')
     cr_assignments = db.relationship('CRAssignment', foreign_keys='CRAssignment.user_id', backref='user', lazy=True, cascade='all, delete-orphan')
+    enrollments = db.relationship('Enrollment', foreign_keys='Enrollment.user_id', backref='user', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def active_enrollment(self):
+        """Returns the single active approved academic enrollment record."""
+        for e in self.enrollments:
+            if e.is_active and e.status == 'approved':
+                return e
+        return None
+
+    @property
+    def active_section(self):
+        """Returns the student's active section (defaults to 2FE for GLA pilot)."""
+        ae = self.active_enrollment
+        return ae.section if ae else (self.section or '2FE')
 
     @property
     def badge(self):
@@ -98,10 +117,13 @@ class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(150), nullable=False)
     code = db.Column(db.String(20), nullable=False, index=True)
-    section = db.Column(db.String(10), default='A', nullable=False)
-    semester = db.Column(db.Integer, default=1, nullable=False)
+    section = db.Column(db.String(10), default='2FE', nullable=False)
+    semester = db.Column(db.Integer, default=3, nullable=False)
+    department = db.Column(db.String(50), default='CSE', nullable=False)
+    academic_year = db.Column(db.String(20), default='2026-27', nullable=False)
+    is_lateral = db.Column(db.Boolean, default=True, nullable=False)
     instructor = db.Column(db.String(120), default='Prof. TBD', nullable=False)
-    room = db.Column(db.String(60), default='Lecture Hall 101', nullable=False)
+    room = db.Column(db.String(60), default='AB-VI Room 306', nullable=False)
     schedule = db.Column(db.String(150), default='Mon, Wed 10:00 AM - 11:30 AM', nullable=False)
     status = db.Column(db.String(40), default='Scheduled', nullable=False)  # Scheduled, Cancelled, Extra Class
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
@@ -114,6 +136,7 @@ class Course(db.Model):
     deadlines = db.relationship('Deadline', backref='course', lazy=True, cascade='all, delete-orphan')
     resources = db.relationship('Resource', backref='course', lazy=True, cascade='all, delete-orphan')
     cr_assignments = db.relationship('CRAssignment', backref='course', lazy=True, cascade='all, delete-orphan')
+    timetable_slots = db.relationship('TimetableSlot', backref='course', lazy=True, cascade='all, delete-orphan')
 
     @property
     def full_title(self):
@@ -197,6 +220,7 @@ class Announcement(db.Model):
     content = db.Column(db.Text, nullable=False)
     tag = db.Column(db.String(30), default='General', nullable=False)  # Exam, Quiz, Assignment, Room Change, Urgent
     target_scope = db.Column(db.String(30), default='course', nullable=False)  # platform, course, semester, section
+    target_section = db.Column(db.String(20), default='2FE', nullable=True)
     is_pinned = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
@@ -391,3 +415,141 @@ class SystemSetting(db.Model):
 
     def __repr__(self):
         return f'<SystemSetting {self.key}={self.value}>'
+
+
+class Enrollment(db.Model):
+    """
+    Academic section enrollment record.
+    Enforces 'One User = One Active Class Enrollment' scoped to academic session.
+    """
+    __tablename__ = 'enrollments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    student_id = db.Column(db.String(50), nullable=True, index=True)
+    college = db.Column(db.String(120), default='GLA University, Mathura Campus', nullable=False)
+    department = db.Column(db.String(100), default='CSE', nullable=False)
+    program = db.Column(db.String(100), default='B.Tech CSE', nullable=False)
+    academic_year = db.Column(db.String(20), default='2026-27', nullable=False)
+    semester = db.Column(db.Integer, default=3, nullable=False)
+    section = db.Column(db.String(20), default='2FE', nullable=False, index=True)
+    is_lateral = db.Column(db.Boolean, default=True, nullable=False)
+    status = db.Column(db.String(20), default='pending', nullable=False, index=True)  # 'approved', 'pending', 'rejected', 'inactive'
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    rejection_reason = db.Column(db.Text, nullable=True)
+    approved_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    approver = db.relationship('User', foreign_keys=[approved_by_id])
+
+    def __repr__(self):
+        return f'<Enrollment User:{self.user_id} {self.section} Sem:{self.semester} ({self.status})>'
+
+
+class RosterEntry(db.Model):
+    """
+    Official institutional student roster uploaded by Admin via CSV.
+    Used to pre-authorize GLA email accounts upon verification.
+    """
+    __tablename__ = 'roster_entries'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False)
+    student_id = db.Column(db.String(50), unique=True, nullable=True, index=True)
+    section = db.Column(db.String(20), default='2FE', nullable=False, index=True)
+    program = db.Column(db.String(100), default='B.Tech CSE', nullable=False)
+    semester = db.Column(db.Integer, default=3, nullable=False)
+    academic_year = db.Column(db.String(20), default='2026-27', nullable=False)
+    is_registered = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f'<RosterEntry {self.email} ({self.student_id}) Sec:{self.section}>'
+
+
+class TimetableSlot(db.Model):
+    """
+    Scheduled class timetable slot for a section.
+    Supports weekly Mon-Fri grids and daily cards.
+    """
+    __tablename__ = 'timetable_slots'
+
+    id = db.Column(db.Integer, primary_key=True)
+    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=False, index=True)
+    day_of_week = db.Column(db.String(20), nullable=False, index=True)  # 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
+    start_time = db.Column(db.String(20), nullable=False)               # '10:00 AM'
+    end_time = db.Column(db.String(20), nullable=False)                 # '11:00 AM'
+    slot_type = db.Column(db.String(20), default='Lecture', nullable=False)  # 'Lecture', 'Lab', 'Tutorial'
+    building = db.Column(db.String(50), default='AB-VI', nullable=False)
+    room = db.Column(db.String(50), default='306', nullable=False)
+    faculty = db.Column(db.String(100), nullable=True)
+    section = db.Column(db.String(20), default='2FE', nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    @property
+    def time_range(self):
+        return f"{self.start_time} - {self.end_time}"
+
+    @property
+    def location(self):
+        return f"{self.building} Room {self.room}"
+
+    def __repr__(self):
+        return f'<TimetableSlot Course:{self.course_id} {self.day_of_week} {self.time_range} ({self.section})>'
+
+
+class AcademicStaff(db.Model):
+    """
+    Institutional academic staff / leadership record.
+    E.g., Head of Department, Program Co-Ordinator, Class Advisor.
+    """
+    __tablename__ = 'academic_staff'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    employee_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    designation = db.Column(db.String(100), nullable=False)  # 'Head of Department', 'Program Co-Ordinator', 'Class Advisor'
+    department = db.Column(db.String(100), default='CSE', nullable=False)
+    section = db.Column(db.String(20), nullable=True)        # e.g., '2FE' for Class Advisor
+    email = db.Column(db.String(120), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f'<AcademicStaff {self.name} ({self.designation})>'
+
+
+class StorageFile(db.Model):
+    """
+    Metadata record for files stored via object storage or local filesystem storage.
+    Files are never stored as binary BLOBs inside Postgres.
+    """
+    __tablename__ = 'storage_files'
+
+    id = db.Column(db.Integer, primary_key=True)
+    uploader_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'), nullable=True, index=True)
+    section = db.Column(db.String(20), default='2FE', nullable=False, index=True)
+    filename = db.Column(db.String(255), nullable=False)
+    original_filename = db.Column(db.String(255), nullable=False)
+    file_type = db.Column(db.String(50), nullable=False)        # 'pdf', 'image', 'document', 'archive', 'notes'
+    mime_type = db.Column(db.String(100), nullable=False)
+    file_size = db.Column(db.Integer, nullable=False)           # Size in bytes
+    storage_path = db.Column(db.String(500), nullable=False)
+    storage_provider = db.Column(db.String(50), default='local', nullable=False)
+    status = db.Column(db.String(30), default='Active', nullable=False)  # 'Active', 'Archived', 'Deleted'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    uploader = db.relationship('User', foreign_keys=[uploader_id], backref='uploaded_files')
+    course = db.relationship('Course', foreign_keys=[course_id], backref='storage_files')
+
+    @property
+    def formatted_size(self):
+        kb = self.file_size / 1024
+        if kb < 1024:
+            return f"{kb:.1f} KB"
+        return f"{kb / 1024:.2f} MB"
+
+    def __repr__(self):
+        return f'<StorageFile #{self.id} {self.original_filename} ({self.formatted_size})>'

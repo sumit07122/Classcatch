@@ -281,17 +281,26 @@
             <a href="{{ url_for('admin_users') }}" class="admin-nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}">
                 <i class="fa-solid fa-users"></i> Users
             </a>
+            <a href="{{ url_for('admin_enrollment') }}" class="admin-nav-link {% if request.endpoint in ['admin_enrollment', 'admin_import_roster'] %}active{% endif %}">
+                <i class="fa-solid fa-id-card"></i> Student Enrollment & Roster
+            </a>
             <a href="{{ url_for('admin_courses') }}" class="admin-nav-link {% if request.endpoint == 'admin_courses' %}active{% endif %}">
-                <i class="fa-solid fa-book-open"></i> Courses & Timetable
+                <i class="fa-solid fa-book-open"></i> Courses
+            </a>
+            <a href="{{ url_for('admin_timetable') }}" class="admin-nav-link {% if request.endpoint == 'admin_timetable' %}active{% endif %}">
+                <i class="fa-solid fa-calendar-week"></i> 2FE Timetable
             </a>
             <a href="{{ url_for('admin_course_import') }}" class="admin-nav-link {% if request.endpoint == 'admin_course_import' %}active{% endif %}">
-                <i class="fa-solid fa-file-import"></i> Bulk CSV Import
+                <i class="fa-solid fa-file-import"></i> Bulk Course CSV
             </a>
             <a href="{{ url_for('admin_cr') }}" class="admin-nav-link {% if request.endpoint == 'admin_cr' %}active{% endif %}">
                 <i class="fa-solid fa-user-shield"></i> CR Management
             </a>
 
             <div class="admin-nav-section">Content & Moderation</div>
+            <a href="{{ url_for('admin_storage') }}" class="admin-nav-link {% if request.endpoint == 'admin_storage' %}active{% endif %}">
+                <i class="fa-solid fa-hard-drive"></i> Storage & Files
+            </a>
             <a href="{{ url_for('admin_resources') }}" class="admin-nav-link {% if request.endpoint == 'admin_resources' %}active{% endif %}">
                 <i class="fa-solid fa-folder-open"></i> Resource Vault
             </a>

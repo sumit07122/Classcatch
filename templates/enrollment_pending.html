@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7 col-md-9">
+            <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-primary bg-gradient text-white p-4 text-center">
+                    <i class="fa-solid fa-graduation-cap fa-3x mb-2 text-white"></i>
+                    <h3 class="fw-bold mb-1">Section Enrollment Pending</h3>
+                    <p class="mb-0 text-white-50 small">GLA University Mathura — 2FE Lateral Entry Pilot</p>
+                </div>
+                <div class="card-body p-4 p-md-5">
+                    <div class="alert alert-warning border-0 rounded-3 mb-4">
+                        <div class="d-flex align-items-center gap-3">
+                            <i class="fa-solid fa-user-clock fa-2x text-warning"></i>
+                            <div>
+                                <h6 class="fw-bold mb-1">Enrollment Required</h6>
+                                <p class="mb-0 small">"Your GLA account was verified, but we couldn't find your ClassCatch enrollment yet."</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card bg-light border-0 rounded-3 p-3 mb-4">
+                        <div class="row g-2 text-sm">
+                            <div class="col-sm-6">
+                                <span class="text-muted d-block small">Student Name</span>
+                                <strong class="text-dark">{{ current_user.name }}</strong>
+                            </div>
+                            <div class="col-sm-6">
+                                <span class="text-muted d-block small">GLA Institutional Email</span>
+                                <strong class="text-primary font-monospace">{{ current_user.email }}</strong>
+                            </div>
+                            <div class="col-sm-6 mt-2">
+                                <span class="text-muted d-block small">Academic Department</span>
+                                <strong class="text-dark">Computer Science & Engineering (CSE)</strong>
+                            </div>
+                            <div class="col-sm-6 mt-2">
+                                <span class="text-muted d-block small">Target Section</span>
+                                <span class="badge bg-dark">2FE (Lateral Entry, Sem 3)</span>
+                            </div>
+                            {% if enrollment and enrollment.status == 'rejected' and enrollment.rejection_reason %}
+                            <div class="col-12 mt-2">
+                                <div class="alert alert-danger mb-0 py-2 small">
+                                    <strong>Coordinator Note:</strong> {{ enrollment.rejection_reason }}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold mb-3 text-dark">Request Section Access</h5>
+                    <p class="small text-muted mb-4">
+                        If you are a 2nd-year lateral entry CSE student enrolled in section 2FE for the 2026–27 session, submit your University Roll Number below. The Academic Coordinator or Class Advisor will review and approve your access.
+                    </p>
+
+                    <form action="{{ url_for('request_access') }}" method="POST">
+                        {{ form.hidden_tag() }}
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">University Roll Number / Student ID <span class="text-danger">*</span></label>
+                            {{ form.student_id(class="form-control form-control-lg", placeholder="e.g. GLA12345 or University Roll No", value=enrollment.student_id if enrollment and enrollment.student_id else '') }}
+                            <div class="form-text">Enter your official GLA university roll number as per your university ID card.</div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold small">Optional Note for Department Coordinator</label>
+                            {{ form.note(class="form-control", rows="3", placeholder="e.g. Lateral entry student admitted via direct 2nd-year counseling.") }}
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg fw-bold">
+                                <i class="fa-solid fa-paper-plane me-2"></i> Submit Access Request
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small text-muted">
+                            <i class="fa-solid fa-shield-alt text-success me-1"></i> Official GLA Mathura Campus Verification
+                        </span>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
+                            <i class="fa-solid fa-sign-out-alt me-1"></i> Sign Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

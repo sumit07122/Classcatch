@@ -70,6 +70,11 @@
                         </ul>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'timetable_view' %}active{% endif %}" href="{{ url_for('timetable_view') }}" id="nav-timetable">
+                            <i class="bi bi-calendar-week me-1"></i> Timetable (2FE)
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint in ['deadlines_list', 'new_deadline'] %}active{% endif %}" href="{{ url_for('deadlines_list') }}" id="nav-deadlines">
                             <i class="bi bi-alarm me-1"></i> Deadlines
                         </a>
@@ -362,6 +367,27 @@
             </div>
         </div>
     </div>
+
+    <!-- Mobile-First App Bottom Navigation Bar -->
+    <nav class="d-md-none fixed-bottom bg-white border-top shadow-lg py-2 px-2" style="z-index: 1040;">
+        <div class="d-flex justify-content-around align-items-center text-center">
+            <a href="{{ url_for('index') }}" class="text-decoration-none px-2 py-1 {% if request.endpoint == 'index' %}text-primary fw-bold{% else %}text-secondary{% endif %}" style="font-size: 0.72rem;">
+                <i class="bi bi-house-door d-block fs-5"></i> Home
+            </a>
+            <a href="{{ url_for('timetable_view') }}" class="text-decoration-none px-2 py-1 {% if request.endpoint == 'timetable_view' %}text-primary fw-bold{% else %}text-secondary{% endif %}" style="font-size: 0.72rem;">
+                <i class="bi bi-calendar-week d-block fs-5"></i> Timetable
+            </a>
+            <a href="{{ url_for('catchup_hub') }}" class="text-decoration-none px-2 py-1 {% if request.endpoint == 'catchup_hub' %}text-warning fw-bold{% else %}text-secondary{% endif %}" style="font-size: 0.72rem;">
+                <i class="bi bi-calendar-check d-block fs-5 text-warning"></i> Catch-Up
+            </a>
+            <a href="{{ url_for('attendance_calculator') }}" class="text-decoration-none px-2 py-1 {% if request.endpoint == 'attendance_calculator' %}text-primary fw-bold{% else %}text-secondary{% endif %}" style="font-size: 0.72rem;">
+                <i class="bi bi-calculator d-block fs-5"></i> Bunks
+            </a>
+            <a href="{{ url_for('resources_list') }}" class="text-decoration-none px-2 py-1 {% if request.endpoint in ['resources_list', 'new_resource'] %}text-primary fw-bold{% else %}text-secondary{% endif %}" style="font-size: 0.72rem;">
+                <i class="bi bi-file-earmark-text d-block fs-5"></i> Vault
+            </a>
+        </div>
+    </nav>
 
     {% block scripts %}{% endblock %}
 </body>

@@ -1,0 +1,60 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Import Official Roster - ClassCatch Admin{% endblock %}
+{% block page_title %}Import Official Student Roster (CSV){% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <div class="admin-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="h6 fw-bold mb-0 text-white">
+                    <i class="fa-solid fa-file-csv text-primary me-2"></i>Upload Student Roster
+                </h3>
+                <a href="{{ url_for('admin_roster_template') }}" class="admin-btn admin-btn-secondary admin-btn-sm">
+                    <i class="fa-solid fa-download"></i> Download Template CSV
+                </a>
+            </div>
+
+            <p class="text-muted small mb-3">
+                Pre-authorized student roster entries allow students registering with an institutional <code>@gla.ac.in</code> email to be enrolled directly into Section 2FE upon email verification.
+            </p>
+
+            <div class="bg-dark p-3 rounded-3 mb-4 font-monospace small border border-secondary text-secondary">
+                <strong class="text-white d-block mb-1">Expected CSV Header & Format:</strong>
+                email,name,student_id,section,program,semester,academic_year<br>
+                <span class="text-info">student1@gla.ac.in,Student One,GLA10001,2FE,B.Tech CSE,3,2026-27</span><br>
+                <span class="text-info">student2@gla.ac.in,Student Two,GLA10002,2FE,B.Tech CSE,3,2026-27</span>
+            </div>
+
+            {% if errors %}
+            <div class="alert alert-warning border-0 rounded-3 mb-4">
+                <strong class="d-block mb-2 text-dark"><i class="fa-solid fa-triangle-exclamation me-1"></i> Validation Warnings Encountered:</strong>
+                <ul class="mb-0 ps-3 small text-dark">
+                    {% for err in errors %}
+                    <li>{{ err }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('admin_import_roster') }}">
+                {{ form.hidden_tag() }}
+                <div class="mb-4">
+                    <label class="form-label fw-semibold text-white small">Paste CSV Roster Data <span class="text-danger">*</span></label>
+                    {{ form.csv_data(class="form-control font-monospace bg-dark text-white border-secondary", rows="10") }}
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('admin_enrollment') }}" class="admin-btn admin-btn-secondary">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Enrollment Control
+                    </a>
+                    <button type="submit" class="admin-btn admin-btn-primary px-4 py-2">
+                        <i class="fa-solid fa-cloud-arrow-up me-1"></i> Validate & Import Roster
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

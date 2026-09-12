@@ -28,8 +28,15 @@ class RegistrationForm(FlaskForm):
     submit = SubmitField('Create Account')
 
     def validate_email(self, email):
-        """Ensure email is not already registered."""
-        user = User.query.filter_by(email=email.data.strip().lower()).first()
+        """Ensure email belongs to GLA University domain and is not already registered."""
+        email_str = email.data.strip().lower()
+        import os
+        allowed_domains = ['@gla.ac.in']
+        # Allow classcatch.edu for development and administrative tests
+        if not any(email_str.endswith(domain) for domain in allowed_domains) and not email_str.endswith('@classcatch.edu') and not os.environ.get('ALLOW_TEST_EMAILS'):
+            raise ValidationError("Only official GLA University institutional email addresses (@gla.ac.in) are permitted.")
+
+        user = User.query.filter_by(email=email_str).first()
         if user:
             raise ValidationError("An account with this email address already exists. Please log in.")
 
@@ -298,4 +305,76 @@ class SystemSettingsForm(FlaskForm):
         DataRequired(), NumberRange(min=1, max=12)
     ])
     submit = SubmitField('Save Platform Settings')
+
+
+class RosterImportForm(FlaskForm):
+    """Form for pasting CSV student roster data to import into RosterEntry."""
+    csv_data = TextAreaField('CSV Student Roster', validators=[
+        DataRequired(message="Please provide CSV roster data.")
+    ], render_kw={
+        "placeholder": "email,name,student_id,section,program,semester,academic_year\nstudent1@gla.ac.in,Student One,GLA10001,2FE,B.Tech CSE,3,2026-27\nstudent2@gla.ac.in,Student Two,GLA10002,2FE,B.Tech CSE,3,2026-27",
+        "rows": 9
+    })
+    submit = SubmitField('Preview & Validate Roster')
+
+
+class EnrollmentRequestForm(FlaskForm):
+    """Form for verified GLA students who are pending active section enrollment."""
+    student_id = StringField('University Roll No / Student ID (e.g. GLA12345)', validators=[
+        DataRequired(message="Please provide your University Roll No / Student ID."),
+        Length(min=3, max=30)
+    ])
+    section = StringField('Section', default='2FE', validators=[
+        DataRequired(message="Section is required."),
+        Length(max=20)
+    ])
+    note = TextAreaField('Note for Department Coordinator (Optional)', validators=[
+        Optional(), Length(max=500)
+    ])
+    submit = SubmitField('Submit Enrollment Request')
+
+
+class TimetableSlotForm(FlaskForm):
+    """Form for adding and editing timetable slots."""
+    course_id = SelectField('Course', coerce=int, validators=[
+        DataRequired(message="Please select a course.")
+    ])
+    day_of_week = SelectField('Day of Week', choices=[
+        ('Monday', 'Monday'),
+        ('Tuesday', 'Tuesday'),
+        ('Wednesday', 'Wednesday'),
+        ('Thursday', 'Thursday'),
+        ('Friday', 'Friday')
+    ], validators=[DataRequired()])
+    start_time = StringField('Start Time (e.g., 10:00 AM)', validators=[
+        DataRequired(message="Start time is required.")
+    ])
+    end_time = StringField('End Time (e.g., 11:00 AM)', validators=[
+        DataRequired(message="End time is required.")
+    ])
+    slot_type = SelectField('Type', choices=[
+        ('Lecture', 'Lecture'),
+        ('Lab', 'Lab'),
+        ('Tutorial', 'Tutorial')
+    ], default='Lecture')
+    building = StringField('Building', default='AB-VI', validators=[DataRequired()])
+    room = StringField('Room', default='306', validators=[DataRequired()])
+    faculty = StringField('Faculty Name', validators=[Optional(), Length(max=100)])
+    section = StringField('Section', default='2FE', validators=[DataRequired()])
+    submit = SubmitField('Save Timetable Slot')
+
+
+class AssignSectionForm(FlaskForm):
+    """Form for Admin to move or reassign a student's section."""
+    section = StringField('Target Section', default='2FE', validators=[
+        DataRequired(message="Section is required."),
+        Length(max=20)
+    ])
+    semester = IntegerField('Semester', default=3, validators=[
+        DataRequired(), NumberRange(min=1, max=12)
+    ])
+    reason = StringField('Administrative Reason for Reassignment', validators=[
+        Optional(), Length(max=255)
+    ])
+    submit = SubmitField('Confirm Section Reassignment')
 

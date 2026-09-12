@@ -1,0 +1,214 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Enrollment & Roster Control - ClassCatch Admin{% endblock %}
+{% block page_title %}Student Enrollment & Official Roster{% endblock %}
+
+{% block content %}
+<!-- Quick Stats Header -->
+<div class="stat-grid">
+    <div class="stat-box">
+        <div>
+            <div class="lbl">Active 2FE Students</div>
+            <div class="val">{{ stats.enrolled_2fe }}</div>
+        </div>
+        <div class="icon text-primary"><i class="fa-solid fa-users"></i></div>
+    </div>
+    <div class="stat-box">
+        <div>
+            <div class="lbl">Pending Requests</div>
+            <div class="val text-warning">{{ stats.pending_count }}</div>
+        </div>
+        <div class="icon text-warning"><i class="fa-solid fa-user-clock"></i></div>
+    </div>
+    <div class="stat-box">
+        <div>
+            <div class="lbl">Official Roster Records</div>
+            <div class="val">{{ stats.roster_total }}</div>
+        </div>
+        <div class="icon text-info"><i class="fa-solid fa-clipboard-list"></i></div>
+    </div>
+    <div class="stat-box">
+        <div>
+            <div class="lbl">Registered on Platform</div>
+            <div class="val text-success">{{ stats.roster_registered }}</div>
+        </div>
+        <div class="icon text-success"><i class="fa-solid fa-user-check"></i></div>
+    </div>
+</div>
+
+<!-- Action Bar -->
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('admin_import_roster') }}" class="admin-btn admin-btn-primary">
+            <i class="fa-solid fa-file-csv"></i> Import Official Roster (CSV)
+        </a>
+        <a href="{{ url_for('admin_roster_template') }}" class="admin-btn admin-btn-secondary">
+            <i class="fa-solid fa-download"></i> CSV Template
+        </a>
+        <a href="{{ url_for('admin_export_csv', entity='enrollments') }}" class="admin-btn admin-btn-secondary">
+            <i class="fa-solid fa-file-export"></i> Export Enrollments
+        </a>
+    </div>
+    <form method="GET" action="{{ url_for('admin_enrollment') }}" class="d-flex gap-2">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search by name, email, roll no..." class="form-control form-control-sm" style="width: 250px;">
+        <button type="submit" class="admin-btn admin-btn-secondary">Filter</button>
+    </form>
+</div>
+
+<!-- Pending Enrollment Requests Section (Priority Attention) -->
+<div class="admin-card mb-4" id="pendingSection">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="h6 fw-bold mb-0 text-white">
+            <i class="fa-solid fa-clock-rotate-left text-warning me-2"></i>Pending Enrollment Requests
+            <span class="badge bg-warning text-dark ms-2">{{ pending_requests|length }}</span>
+        </h3>
+        <small class="text-muted">Verified GLA accounts awaiting section authorization</small>
+    </div>
+
+    {% if pending_requests %}
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Student Name</th>
+                    <th>GLA Institutional Email</th>
+                    <th>Roll Number</th>
+                    <th>Requested Section</th>
+                    <th>Date Submitted</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in pending_requests %}
+                <tr>
+                    <td class="fw-bold text-white">{{ req.user.name }}</td>
+                    <td class="font-monospace text-primary">{{ req.user.email }}</td>
+                    <td class="font-monospace fw-semibold">{{ req.student_id or req.user.student_id or '—' }}</td>
+                    <td><span class="badge bg-dark">{{ req.section }} (Sem {{ req.semester }})</span></td>
+                    <td class="text-muted small">{{ req.created_at.strftime('%b %d, %Y %H:%M') }}</td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <form method="POST" action="{{ url_for('admin_approve_enrollment', id=req.id) }}" class="d-inline">
+                                <button type="submit" class="admin-btn admin-btn-success admin-btn-sm" title="Approve & Grant Section Access">
+                                    <i class="fa-solid fa-check"></i> Approve
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin_reject_enrollment', id=req.id) }}" class="d-inline">
+                                <button type="submit" class="admin-btn admin-btn-danger admin-btn-sm" title="Reject Request">
+                                    <i class="fa-solid fa-times"></i> Reject
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-4 text-center text-muted">
+        <i class="fa-solid fa-circle-check text-success fa-2x mb-2"></i>
+        <p class="mb-0 small">No pending enrollment requests. All verified students are enrolled!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Active Student Enrollments Section -->
+<div class="admin-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="h6 fw-bold mb-0 text-white">
+            <i class="fa-solid fa-user-graduate text-primary me-2"></i>Active Academic Enrollments
+        </h3>
+        <span class="badge bg-secondary">{{ enrollments|length }} Records</span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Student Name</th>
+                    <th>Institutional Email</th>
+                    <th>Student ID</th>
+                    <th>Section</th>
+                    <th>Status</th>
+                    <th>Active</th>
+                    <th>Manage Section</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for enr in enrollments %}
+                <tr>
+                    <td class="fw-bold text-white">{{ enr.user.name if enr.user else '—' }}</td>
+                    <td class="font-monospace text-primary">{{ enr.user.email if enr.user else '—' }}</td>
+                    <td class="font-monospace">{{ enr.student_id or '—' }}</td>
+                    <td><span class="badge bg-primary">{{ enr.section }}</span></td>
+                    <td>
+                        <span class="badge {% if enr.status == 'approved' %}bg-success{% elif enr.status == 'pending' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                            {{ enr.status|capitalize }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if enr.is_active %}
+                        <span class="text-success small fw-bold"><i class="fa-solid fa-check"></i> Yes</span>
+                        {% else %}
+                        <span class="text-muted small">No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="POST" action="{{ url_for('admin_move_enrollment', id=enr.id) }}" class="d-flex gap-1 align-items-center">
+                            <input type="text" name="section" value="{{ enr.section }}" class="form-control form-control-sm font-monospace" style="width: 70px;" required>
+                            <button type="submit" class="admin-btn admin-btn-secondary admin-btn-sm" title="Reassign Section">Move</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Official Roster Entries Section -->
+<div class="admin-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="h6 fw-bold mb-0 text-white">
+            <i class="fa-solid fa-list-check text-info me-2"></i>Official University 2FE Roster
+        </h3>
+        <span class="badge bg-info text-dark">{{ roster_entries|length }} Pre-Authorized</span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Full Name</th>
+                    <th>University Roll No</th>
+                    <th>Section</th>
+                    <th>Program</th>
+                    <th>Session</th>
+                    <th>Registered</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in roster_entries %}
+                <tr>
+                    <td class="font-monospace text-info">{{ r.email }}</td>
+                    <td class="fw-bold text-white">{{ r.name }}</td>
+                    <td class="font-monospace">{{ r.student_id or '—' }}</td>
+                    <td><span class="badge bg-dark">{{ r.section }}</span></td>
+                    <td class="small">{{ r.program }}</td>
+                    <td class="small text-muted">{{ r.academic_year }}</td>
+                    <td>
+                        {% if r.is_registered %}
+                        <span class="badge bg-success"><i class="fa-solid fa-check me-1"></i> Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Awaiting Signup</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
