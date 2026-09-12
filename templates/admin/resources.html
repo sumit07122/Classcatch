@@ -1,0 +1,127 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<div class="admin-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h3 style="margin: 0; color: #fff; font-size: 1.15rem;">
+                Academic Resource Vault Moderation ({{ resources|length }})
+            </h3>
+            <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">
+                Review student-submitted PYQs, cheat sheets, and lab solutions before public publication.
+            </p>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="{{ url_for('admin_resources', status='Pending Review') }}" class="admin-btn {% if status_filter=='Pending Review' %}admin-btn-warning{% else %}admin-btn-secondary{% endif %}">
+                <i class="fa-solid fa-clock"></i> Pending Review
+            </a>
+            <a href="{{ url_for('admin_resources', status='Approved') }}" class="admin-btn {% if status_filter=='Approved' %}admin-btn-success{% else %}admin-btn-secondary{% endif %}">
+                <i class="fa-solid fa-check"></i> Approved
+            </a>
+            <a href="{{ url_for('admin_resources', status='Rejected') }}" class="admin-btn {% if status_filter=='Rejected' %}admin-btn-danger{% else %}admin-btn-secondary{% endif %}">
+                <i class="fa-solid fa-ban"></i> Rejected
+            </a>
+            <a href="{{ url_for('admin_resources', status='ALL') }}" class="admin-btn {% if status_filter=='ALL' %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}">
+                All Resources
+            </a>
+        </div>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Resource Title & URL</th>
+                    <th>Course & Category</th>
+                    <th>Contributor</th>
+                    <th>Status</th>
+                    <th>Engagement</th>
+                    <th style="text-align: right;">Moderation Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if resources %}
+                    {% for r in resources %}
+                        <tr>
+                            <td>
+                                <div style="font-weight: 700; color: #fff;">
+                                    {% if r.is_featured %}<i class="fa-solid fa-star text-warning" title="Featured Resource"></i>{% endif %}
+                                    {{ r.title }}
+                                </div>
+                                <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.2rem;">
+                                    <a href="{{ r.resource_url }}" target="_blank" style="color: #60a5fa; text-decoration: none;">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Attachment Link
+                                    </a>
+                                </div>
+                                {% if r.rejection_reason %}
+                                    <div style="font-size: 0.75rem; color: #f87171; margin-top: 0.2rem;">
+                                        <em>Rejection Reason: {{ r.rejection_reason }}</em>
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #60a5fa;">{{ r.course.code if r.course else 'General' }}</div>
+                                <div style="font-size: 0.75rem; color: #9ca3af;">{{ r.category }}</div>
+                            </td>
+                            <td>
+                                <span style="font-weight: 600;">{{ r.author.name if r.author else 'Unknown' }}</span>
+                            </td>
+                            <td>
+                                {% if r.status == 'Approved' %}
+                                    <span class="badge-role" style="background: #059669; color: #fff;">Approved</span>
+                                {% elif r.status == 'Pending Review' %}
+                                    <span class="badge-role" style="background: #d97706; color: #fff;">Pending</span>
+                                {% else %}
+                                    <span class="badge-role" style="background: #dc2626; color: #fff;">{{ r.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="font-size: 0.8rem; color: #9ca3af; font-family: 'JetBrains Mono', monospace;">
+                                <i class="fa-solid fa-thumbs-up text-primary"></i> {{ r.helpful_count }} &bull; <i class="fa-solid fa-download"></i> {{ r.downloads }}
+                            </td>
+                            <td style="text-align: right;">
+                                <div style="display: inline-flex; gap: 0.3rem;">
+                                    {% if r.status != 'Approved' %}
+                                        <form action="{{ url_for('admin_resource_approve', resource_id=r.id) }}" method="POST" style="display: inline;">
+                                            <button type="submit" class="admin-btn admin-btn-success" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                                <i class="fa-solid fa-check"></i> Approve
+                                            </button>
+                                        </form>
+                                    {% endif %}
+
+                                    {% if r.status != 'Rejected' %}
+                                        <form action="{{ url_for('admin_resource_reject', resource_id=r.id) }}" method="POST" style="display: inline;" onsubmit="var res = prompt('Enter rejection reason for student:', 'Does not meet academic quality guidelines'); if (!res) return false; this.rejection_reason.value = res;">
+                                            <input type="hidden" name="rejection_reason" value="">
+                                            <button type="submit" class="admin-btn admin-btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                                <i class="fa-solid fa-ban"></i> Reject
+                                            </button>
+                                        </form>
+                                    {% endif %}
+
+                                    <form action="{{ url_for('admin_resource_toggle_feature', resource_id=r.id) }}" method="POST" style="display: inline;">
+                                        <button type="submit" class="admin-btn admin-btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" title="Toggle Featured">
+                                            <i class="fa-solid fa-star {% if r.is_featured %}text-warning{% endif %}"></i>
+                                        </button>
+                                    </form>
+
+                                    <form action="{{ url_for('admin_resource_delete', resource_id=r.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Permanently delete resource?');">
+                                        <button type="submit" class="admin-btn admin-btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #9ca3af; padding: 2rem;">
+                            No resources matching filter "{{ status_filter }}".
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<div class="admin-card">
+    <div style="margin-bottom: 1.5rem;">
+        <h3 style="margin: 0; color: #fff; font-size: 1.15rem;">
+            <i class="fa-solid fa-toggle-on text-primary"></i> Dynamic Feature Controls & Killswitches
+        </h3>
+        <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">
+            Instantly enable or disable student features in real-time without modifying code or redeploying the server.
+        </p>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Feature Name & Description</th>
+                    <th>Identifier Key</th>
+                    <th>Current Status</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in flags %}
+                    <tr>
+                        <td>
+                            <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">{{ f.name }}</div>
+                            <div style="font-size: 0.75rem; color: #9ca3af;">{{ f.description }}</div>
+                        </td>
+                        <td>
+                            <code style="background: var(--admin-card); color: #60a5fa; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">{{ f.key }}</code>
+                        </td>
+                        <td>
+                            {% if f.is_enabled %}
+                                <span class="badge-role" style="background: #059669; color: #fff;">
+                                    <i class="fa-solid fa-circle-check"></i> ENABLED
+                                </span>
+                            {% else %}
+                                <span class="badge-role" style="background: #dc2626; color: #fff;">
+                                    <i class="fa-solid fa-circle-xmark"></i> DISABLED
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                            <form action="{{ url_for('admin_feature_flag_toggle', key=f.key) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="admin-btn {% if f.is_enabled %}admin-btn-danger{% else %}admin-btn-success{% endif %}">
+                                    {% if f.is_enabled %}
+                                        <i class="fa-solid fa-toggle-off"></i> Disable Feature
+                                    {% else %}
+                                        <i class="fa-solid fa-toggle-on"></i> Enable Feature
+                                    {% endif %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

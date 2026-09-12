@@ -264,8 +264,122 @@ def test_classcatch():
         assert bad_rec.classes_needed == 10  # (20+10)/(30+10) = 30/40 = 75%
         print(f"   [+] Attendance Recovery Math Check: 20/30 (66.7%) -> Needs {bad_rec.classes_needed} consecutive classes to reach 75%")
 
+    # 15. Testing Admin Control Center & RBAC
+    print("[*] Testing Admin Control Center RBAC & Operational Endpoints...")
+    # Student David attempts to access /admin -> Should be denied
+    client.get('/logout', follow_redirects=True)
+    client.post('/login', data={'email': 'david@classcatch.edu', 'password': 'password123'}, follow_redirects=True)
+    student_admin_res = client.get('/admin', follow_redirects=True)
+    assert b"Access denied" in student_admin_res.data or b"Administrator privileges" in student_admin_res.data
+    print("   [+] Security Check: Ordinary student access to /admin blocked -> Access Denied")
+
+    # Log in as Platform Administrator
+    client.get('/logout', follow_redirects=True)
+    admin_login_res = client.post('/login', data={'email': 'admin@classcatch.edu', 'password': 'password123'}, follow_redirects=True)
+    assert admin_login_res.status_code == 200
+    print("   [+] POST /login (ClassCatch Admin) -> Success")
+
+    # Verify all Admin Views return 200 OK
+    admin_views = [
+        ('/admin', 'Dashboard'),
+        ('/admin/users', 'Users'),
+        ('/admin/courses', 'Courses'),
+        ('/admin/courses/import', 'Bulk CSV Import'),
+        ('/admin/cr', 'CR Management'),
+        ('/admin/resources', 'Resource Vault'),
+        ('/admin/summaries', 'Lecture Summaries'),
+        ('/admin/announcements', 'Announcements'),
+        ('/admin/deadlines', 'Official Deadlines'),
+        ('/admin/reports', 'Reports Center'),
+        ('/admin/feature-flags', 'Feature Controls'),
+        ('/admin/settings', 'Platform Settings'),
+        ('/admin/audit-logs', 'Audit Logs')
+    ]
+    for route, name in admin_views:
+        r = client.get(route)
+        assert r.status_code == 200, f"Expected 200 on {route}, got {r.status_code}"
+        print(f"   [+] GET {route} ({name}) -> 200 OK")
+
+    # 16. Testing Resource Moderation Workflow
+    print("[*] Testing Admin Resource Vault Moderation...")
+    with app.app_context():
+        pending = Resource.query.filter_by(status='Pending Review').first()
+        pending_id = pending.id if pending else 1
+    approve_res = client.post(f'/admin/resources/{pending_id}/approve', follow_redirects=True)
+    assert approve_res.status_code == 200
+    with app.app_context():
+        approved_res = db.session.get(Resource, pending_id)
+        assert approved_res.status == 'Approved'
+    print(f"   [+] POST /admin/resources/{pending_id}/approve -> Resource approved successfully")
+
+    # 17. Testing Feature Flag Dynamic Controls
+    print("[*] Testing Dynamic Feature Flag Controls...")
+    toggle_flag_res = client.post('/admin/feature-flags/ai_ocr/toggle', follow_redirects=True)
+    assert toggle_flag_res.status_code == 200
+    with app.app_context():
+        from models import FeatureFlag
+        flag = FeatureFlag.query.filter_by(key='ai_ocr').first()
+        assert flag.is_enabled is False
+    # Toggle back on
+    client.post('/admin/feature-flags/ai_ocr/toggle', follow_redirects=True)
+    with app.app_context():
+        flag = FeatureFlag.query.filter_by(key='ai_ocr').first()
+        assert flag.is_enabled is True
+    print("   [+] POST /admin/feature-flags/ai_ocr/toggle -> Feature flag toggled successfully")
+
+    # 18. Testing CSV Data Exports
+    print("[*] Testing 1-Click CSV Data Exports...")
+    for entity in ['users', 'courses', 'resources', 'summaries', 'reports']:
+        export_res = client.get(f'/admin/export/{entity}')
+        assert export_res.status_code == 200
+        assert 'text/csv' in export_res.headers['Content-Type']
+        print(f"   [+] GET /admin/export/{entity} -> 200 OK (CSV generated)")
+
+    # 19. Testing Student Content Report Submission
+    print("[*] Testing Student Report Submission...")
+    client.get('/logout', follow_redirects=True)
+    client.post('/login', data={'email': 'sarah@classcatch.edu', 'password': 'password123'}, follow_redirects=True)
+    report_post = client.post('/report', data={
+        'target_type': 'summary',
+        'target_id': 1,
+        'category': 'Incorrect Information',
+        'reason': 'The professor changed the homework problems at the end of class.'
+    }, follow_redirects=True)
+    assert report_post.status_code == 200
+    with app.app_context():
+        from models import Report
+        new_report = Report.query.filter_by(category='Incorrect Information').first()
+        assert new_report is not None
+        assert new_report.status == 'Open'
+    print("   [+] POST /report -> 200 OK (Report recorded in Moderation Center)")
+
+    # 20. Testing Platform Maintenance Mode Enforcement
+    print("[*] Testing Maintenance Mode Guard...")
+    with app.app_context():
+        from models import SystemSetting
+        m_setting = SystemSetting.query.filter_by(key='maintenance_mode').first()
+        if not m_setting:
+            m_setting = SystemSetting(key='maintenance_mode', value='true')
+            db.session.add(m_setting)
+        else:
+            m_setting.value = 'true'
+        db.session.commit()
+
+    # Ordinary student visiting /catchup should be redirected to /maintenance
+    student_maint_res = client.get('/catchup', follow_redirects=False)
+    assert student_maint_res.status_code == 302
+    assert '/maintenance' in student_maint_res.location
+    print("   [+] Maintenance Guard: Ordinary student redirected to /maintenance")
+
+    # Revert maintenance mode to false
+    with app.app_context():
+        m_setting = SystemSetting.query.filter_by(key='maintenance_mode').first()
+        m_setting.value = 'false'
+        db.session.commit()
+    print("   [+] Maintenance Guard: Restored to normal operation")
+
     print("\n" + "=" * 65)
-    print("[ALL ENHANCED TESTS PASSED SUCCESSFULLY!]")
+    print("[ALL ENHANCED PRODUCTION TESTS PASSED SUCCESSFULLY!]")
     print("=" * 65)
 
 if __name__ == '__main__':

@@ -6,18 +6,27 @@ from dotenv import load_dotenv
 if not os.environ.get('TESTING'):
     load_dotenv(override=True)
 
-from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, abort, send_from_directory
+from functools import wraps
+import csv
+import io
+
+from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, abort, send_from_directory, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord, Deadline, Resource
+from models import (
+    db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord,
+    Deadline, Resource, CRAssignment, Report, AuditLog, FeatureFlag, SystemSetting
+)
 from forms import (
     RegistrationForm, LoginForm, SummaryForm, ChatMessageForm,
-    AnnouncementForm, AttendanceForm, DeadlineForm, ResourceForm, CourseForm
+    AnnouncementForm, AttendanceForm, DeadlineForm, ResourceForm, CourseForm,
+    OnboardingForm, ReportForm, AdminUserEditForm, CRAssignmentForm,
+    BulkCourseImportForm, SystemSettingsForm
 )
 
 # Initialize Flask application
 app = Flask(__name__)
 
-# Application Configuration (Supabase PostgreSQL / SQLite fallback)
+# Application Configuration (Supabase / Neon PostgreSQL / SQLite fallback)
 raw_db_url = os.environ.get('DATABASE_URL', 'sqlite:///classcatch.db')
 if raw_db_url.startswith("postgres://"):
     raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
@@ -41,14 +50,103 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
+# ==========================================
+# Operational Helpers & Access Control
+# ==========================================
+
+def is_feature_enabled(key):
+    """Check whether a system feature flag is active."""
+    try:
+        flag = FeatureFlag.query.filter_by(key=key).first()
+        return flag.is_enabled if flag else True
+    except Exception:
+        return True
+
+
+def get_system_setting(key, default=None):
+    """Fetch global configuration setting."""
+    try:
+        setting = SystemSetting.query.filter_by(key=key).first()
+        return setting.value if setting else default
+    except Exception:
+        return default
+
+
+def log_audit(action, target_type=None, target_id=None, details=None):
+    """Log an operational audit action for administrative tracking."""
+    try:
+        user_id = current_user.id if current_user and current_user.is_authenticated else None
+        entry = AuditLog(
+            user_id=user_id,
+            action=action,
+            target_type=target_type,
+            target_id=str(target_id) if target_id is not None else None,
+            details=details
+        )
+        db.session.add(entry)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[AUDIT LOG ERROR] {e}")
+
+
+def admin_required(f):
+    """Decorator to enforce Platform Administrator or SuperAdmin privileges."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Please sign in with an administrator account.', 'warning')
+            return redirect(url_for('login', next=request.path))
+        if not current_user.is_admin():
+            flash('Access denied. Administrator privileges required.', 'danger')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def superadmin_required(f):
+    """Decorator to enforce Super Administrator privileges."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_superadmin():
+            flash('Access denied. Super Administrator privileges required.', 'danger')
+            return redirect(url_for('admin_dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.before_request
+def check_maintenance_and_suspension():
+    """Enforce account suspensions and platform maintenance mode."""
+    # Enforce suspended status
+    if current_user.is_authenticated and getattr(current_user, 'is_suspended', False):
+        logout_user()
+        flash('Your account has been suspended by administration. Please contact campus support.', 'danger')
+        return redirect(url_for('login'))
+
+    # Check maintenance mode
+    m_mode = get_system_setting('maintenance_mode', 'false')
+    if m_mode == 'true':
+        exempt_prefixes = ['/static', '/login', '/logout', '/maintenance', '/admin']
+        if not any(request.path.startswith(p) for p in exempt_prefixes):
+            if not (current_user.is_authenticated and current_user.is_admin()):
+                return redirect(url_for('maintenance'))
+
+
 @app.context_processor
 def inject_globals():
-    """Inject common utility data into all Jinja templates."""
-    all_courses = Course.query.order_by(Course.code).all() if Course.query else []
+    """Inject common utility data, features, and settings into all Jinja templates."""
+    all_courses = []
+    try:
+        all_courses = Course.query.filter_by(is_archived=False).order_by(Course.code).all()
+    except Exception:
+        pass
     return {
         'today': date.today(),
         'current_year': datetime.now().year,
-        'global_courses': all_courses
+        'global_courses': all_courses,
+        'is_feature_enabled': is_feature_enabled,
+        'get_system_setting': get_system_setting
     }
 
 
@@ -62,16 +160,23 @@ def register():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
 
+    # Respect platform registration feature flag
+    if get_system_setting('registration_enabled', 'true') == 'false':
+        flash('Student registration is temporarily disabled by platform administration.', 'warning')
+        return redirect(url_for('login'))
+
     form = RegistrationForm()
     if form.validate_on_submit():
         user = User(
             name=form.name.data.strip(),
             email=form.email.data.strip().lower(),
-            role='student'
+            role='student',
+            is_onboarded=False
         )
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
+        log_audit('user.registered', 'user', user.id, f"Registered new account: {user.email}")
 
         flash('🎉 Welcome to ClassCatch! Your account is created. Please log in.', 'success')
         return redirect(url_for('login'))
@@ -81,19 +186,30 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Handle student login."""
+    """Handle student and administrator login."""
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('admin_dashboard') if current_user.is_admin() else url_for('index'))
 
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data.strip().lower()).first()
         if user and user.check_password(form.password.data):
+            if user.is_suspended:
+                flash('Your account has been suspended by administration. Please contact campus support.', 'danger')
+                return render_template('login.html', title='Sign In', form=form)
+
             login_user(user, remember=form.remember_me.data)
+            log_audit('user.login', 'user', user.id, f"Logged in from role: {user.role}")
+
             flash(f'👋 Welcome back, {user.name}!', 'success')
             next_page = request.args.get('next')
             if not next_page or not next_page.startswith('/'):
-                next_page = url_for('index')
+                if user.is_admin():
+                    next_page = url_for('admin_dashboard')
+                elif not user.is_onboarded and user.role == 'student':
+                    next_page = url_for('onboarding')
+                else:
+                    next_page = url_for('index')
             return redirect(next_page)
         else:
             flash('Invalid email or password. Please verify your credentials.', 'danger')
@@ -1158,13 +1274,786 @@ def offline():
 
 
 # ==========================================
+# Student Onboarding & Content Reporting
+# ==========================================
+
+@app.route('/onboarding', methods=['GET', 'POST'])
+@login_required
+def onboarding():
+    """First-time student profile setup (university, program, semester, section)."""
+    form = OnboardingForm()
+    if request.method == 'GET':
+        form.college.data = current_user.college or 'GLA University'
+        form.program.data = current_user.program or 'B.Tech CSE'
+        form.semester.data = current_user.semester or 5
+        form.section.data = current_user.section or 'A'
+
+    if form.validate_on_submit():
+        current_user.college = form.college.data.strip()
+        current_user.program = form.program.data.strip()
+        current_user.semester = form.semester.data
+        current_user.section = form.section.data.strip().upper()
+        current_user.is_onboarded = True
+        db.session.commit()
+        log_audit('user.onboarded', 'user', current_user.id, f"Program: {current_user.program}, Sec: {current_user.section}")
+        flash('🚀 Academic workspace ready! Welcome to ClassCatch.', 'success')
+        return redirect(url_for('index'))
+
+    return render_template('onboarding.html', title='Welcome to ClassCatch - Quick Setup', form=form)
+
+
+@app.route('/onboarding/skip')
+@login_required
+def onboarding_skip():
+    """Allow student to skip onboarding and jump straight to lectures."""
+    current_user.is_onboarded = True
+    db.session.commit()
+    flash('You can customize your campus profile anytime from settings.', 'info')
+    return redirect(url_for('index'))
+
+
+@app.route('/report', methods=['POST'])
+@login_required
+def submit_report():
+    """Submit a moderation report against spam, incorrect notes, or inappropriate content."""
+    target_type = request.form.get('target_type') or (request.json and request.json.get('target_type'))
+    target_id = request.form.get('target_id') or (request.json and request.json.get('target_id'))
+    category = request.form.get('category') or (request.json and request.json.get('category')) or 'Other'
+    reason = request.form.get('reason') or (request.json and request.json.get('reason')) or ''
+
+    if not target_type or not target_id or not reason:
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'Missing required report fields.'}), 400
+        flash('Please provide a reason for reporting this content.', 'warning')
+        return redirect(request.referrer or url_for('index'))
+
+    report = Report(
+        reporter_id=current_user.id,
+        target_type=target_type,
+        target_id=int(target_id),
+        category=category,
+        reason=reason.strip(),
+        status='Open'
+    )
+    db.session.add(report)
+    db.session.commit()
+    log_audit('report.submitted', 'report', report.id, f"Category: {category}, Target: {target_type}#{target_id}")
+
+    if request.is_json:
+        return jsonify({'success': True, 'message': 'Report submitted for review.'})
+    flash('🛡️ Thank you for keeping ClassCatch safe. Our moderation team has received your report.', 'success')
+    return redirect(request.referrer or url_for('index'))
+
+
+@app.route('/maintenance')
+def maintenance():
+    """Maintenance splash display when administrator enables maintenance mode."""
+    return render_template('maintenance.html', title='System Maintenance - ClassCatch')
+
+
+# ==========================================
+# Admin Control Center (/admin)
+# ==========================================
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    """ClassCatch Admin Control Center overview dashboard."""
+    stats = {
+        'total_users': User.query.count(),
+        'students': User.query.filter_by(role='student').count(),
+        'crs': User.query.filter_by(role='cr').count(),
+        'admins': User.query.filter(User.role.in_(['admin', 'superadmin'])).count(),
+        'courses': Course.query.filter_by(is_archived=False).count(),
+        'archived_courses': Course.query.filter_by(is_archived=True).count(),
+        'summaries': Summary.query.count(),
+        'resources': Resource.query.count(),
+        'pending_resources': Resource.query.filter_by(status='Pending Review').count(),
+        'open_reports': Report.query.filter_by(status='Open').count(),
+        'deadlines': Deadline.query.count(),
+        'chat_messages': ChatMessage.query.count()
+    }
+    recent_audits = AuditLog.query.order_by(AuditLog.created_at.desc()).limit(8).all()
+    open_reports = Report.query.filter_by(status='Open').order_by(Report.created_at.desc()).limit(5).all()
+    pending_resources = Resource.query.filter_by(status='Pending Review').order_by(Resource.created_at.desc()).limit(5).all()
+
+    return render_template(
+        'admin/dashboard.html',
+        title='Admin Control Center',
+        stats=stats,
+        recent_audits=recent_audits,
+        open_reports=open_reports,
+        pending_resources=pending_resources
+    )
+
+
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    """Admin user management view."""
+    role_filter = request.args.get('role', '')
+    query = request.args.get('q', '').strip()
+
+    users_query = User.query
+    if role_filter:
+        users_query = users_query.filter_by(role=role_filter)
+    if query:
+        search_pattern = f"%{query}%"
+        users_query = users_query.filter(
+            (User.name.ilike(search_pattern)) | (User.email.ilike(search_pattern))
+        )
+    users = users_query.order_by(User.id.asc()).all()
+    return render_template('admin/users.html', title='User Management', users=users, role_filter=role_filter, query=query)
+
+
+@app.route('/admin/users/<int:user_id>/role', methods=['POST'])
+@admin_required
+def admin_change_user_role(user_id):
+    """Change user role (student, cr, admin, superadmin)."""
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+    new_role = request.form.get('role', 'student')
+    if new_role not in ['student', 'cr', 'admin', 'superadmin']:
+        flash('Invalid role specified.', 'danger')
+        return redirect(url_for('admin_users'))
+
+    if (new_role == 'superadmin' or user.role == 'superadmin') and not current_user.is_superadmin():
+        flash('Only Super Administrators can assign or modify SuperAdmin roles.', 'danger')
+        return redirect(url_for('admin_users'))
+
+    old_role = user.role
+    user.role = new_role
+    db.session.commit()
+    log_audit('user.role_change', 'user', user.id, f"Changed role from {old_role} to {new_role}")
+    flash(f"Updated role for {user.name} to {new_role.upper()}.", 'success')
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/users/<int:user_id>/toggle-suspend', methods=['POST'])
+@admin_required
+def admin_toggle_suspend_user(user_id):
+    """Suspend or unsuspend a user account."""
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+    if user.id == current_user.id:
+        flash('You cannot suspend your own account.', 'warning')
+        return redirect(url_for('admin_users'))
+    if user.is_superadmin() and not current_user.is_superadmin():
+        flash('Cannot suspend a Super Administrator.', 'danger')
+        return redirect(url_for('admin_users'))
+
+    user.is_suspended = not user.is_suspended
+    db.session.commit()
+    action = 'user.suspended' if user.is_suspended else 'user.unsuspended'
+    log_audit(action, 'user', user.id, f"Account status set to {'SUSPENDED' if user.is_suspended else 'ACTIVE'}")
+    flash(f"User {user.name} is now {'suspended' if user.is_suspended else 'active'}.", 'success')
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/courses')
+@admin_required
+def admin_courses():
+    """Admin courses management."""
+    show_archived = request.args.get('archived', '0') == '1'
+    courses = Course.query.filter_by(is_archived=show_archived).order_by(Course.code.asc()).all()
+    form = CourseForm()
+    return render_template('admin/courses.html', title='Course Management', courses=courses, form=form, show_archived=show_archived)
+
+
+@app.route('/admin/courses/new', methods=['POST'])
+@admin_required
+def admin_course_new():
+    """Create new official course from admin panel."""
+    form = CourseForm()
+    if form.validate_on_submit():
+        course = Course(
+            name=form.name.data.strip(),
+            code=form.code.data.strip().upper(),
+            section=form.section.data.strip().upper() if form.section.data else 'A',
+            semester=form.semester.data,
+            instructor=form.instructor.data.strip() if form.instructor.data else 'Prof. TBD',
+            room=form.room.data.strip() if form.room.data else 'Lecture Hall',
+            schedule=form.schedule.data.strip() if form.schedule.data else 'TBD',
+            status='Scheduled'
+        )
+        db.session.add(course)
+        db.session.commit()
+        log_audit('course.created', 'course', course.id, f"Created {course.code} - {course.name}")
+        flash(f'Course {course.code} successfully created.', 'success')
+    else:
+        for err in form.errors.values():
+            flash(f"Error: {err[0]}", 'danger')
+    return redirect(url_for('admin_courses'))
+
+
+@app.route('/admin/courses/<int:course_id>/toggle-archive', methods=['POST'])
+@admin_required
+def admin_course_toggle_archive(course_id):
+    """Archive or restore a course."""
+    course = db.session.get(Course, course_id)
+    if not course:
+        abort(404)
+    course.is_archived = not course.is_archived
+    db.session.commit()
+    log_audit('course.archived' if course.is_archived else 'course.restored', 'course', course.id)
+    flash(f"Course {course.code} has been {'archived' if course.is_archived else 'restored'}.", 'info')
+    return redirect(url_for('admin_courses', archived=1 if course.is_archived else 0))
+
+
+@app.route('/admin/courses/<int:course_id>/delete', methods=['POST'])
+@superadmin_required
+def admin_course_delete(course_id):
+    """Permanently delete a course (SuperAdmin only)."""
+    course = db.session.get(Course, course_id)
+    if not course:
+        abort(404)
+    code = course.code
+    db.session.delete(course)
+    db.session.commit()
+    log_audit('course.deleted', 'course', course_id, f"Deleted {code}")
+    flash(f'Course {code} permanently removed.', 'warning')
+    return redirect(url_for('admin_courses'))
+
+
+@app.route('/admin/courses/import', methods=['GET', 'POST'])
+@admin_required
+def admin_course_import():
+    """Bulk import courses from CSV data with validation and preview."""
+    form = BulkCourseImportForm()
+    parsed_courses = []
+    errors = []
+
+    if request.method == 'POST':
+        csv_text = form.csv_data.data or request.form.get('csv_data', '')
+        action = request.form.get('action', 'preview')
+
+        if not csv_text.strip():
+            flash('Please paste valid CSV data.', 'warning')
+            return render_template('admin/course_import.html', title='Bulk Course Import', form=form, parsed_courses=[], errors=['Empty CSV payload'])
+
+        f = io.StringIO(csv_text.strip())
+        reader = csv.DictReader(f)
+        row_num = 1
+        for row in reader:
+            row_num += 1
+            code = (row.get('code') or '').strip().upper()
+            name = (row.get('name') or '').strip()
+            if not code or not name:
+                errors.append(f"Row {row_num}: Missing required code or name.")
+                continue
+            try:
+                sem = int(row.get('semester') or 1)
+            except ValueError:
+                sem = 1
+            parsed_courses.append({
+                'code': code,
+                'name': name,
+                'section': (row.get('section') or 'A').strip().upper(),
+                'semester': sem,
+                'instructor': (row.get('instructor') or 'Prof. TBD').strip(),
+                'room': (row.get('room') or 'Lecture Hall').strip(),
+                'schedule': (row.get('schedule') or 'TBD').strip()
+            })
+
+        if action == 'commit' and not errors and parsed_courses:
+            added_count = 0
+            for item in parsed_courses:
+                course = Course(
+                    code=item['code'],
+                    name=item['name'],
+                    section=item['section'],
+                    semester=item['semester'],
+                    instructor=item['instructor'],
+                    room=item['room'],
+                    schedule=item['schedule'],
+                    status='Scheduled'
+                )
+                db.session.add(course)
+                added_count += 1
+            db.session.commit()
+            log_audit('courses.bulk_imported', 'course', None, f"Imported {added_count} courses via CSV")
+            flash(f"🎉 Successfully imported {added_count} courses!", 'success')
+            return redirect(url_for('admin_courses'))
+
+    return render_template('admin/course_import.html', title='Bulk Course Import', form=form, parsed_courses=parsed_courses, errors=errors)
+
+
+@app.route('/admin/cr')
+@admin_required
+def admin_cr():
+    """Admin Class Representative (CR) management."""
+    assignments = CRAssignment.query.order_by(CRAssignment.created_at.desc()).all()
+    students = User.query.filter(User.role.in_(['student', 'cr'])).order_by(User.name).all()
+    courses = Course.query.filter_by(is_archived=False).order_by(Course.code).all()
+    return render_template('admin/cr_management.html', title='CR Management', assignments=assignments, students=students, courses=courses)
+
+
+@app.route('/admin/cr/assign', methods=['POST'])
+@admin_required
+def admin_cr_assign():
+    """Assign a student as CR to a course/section."""
+    user_id = request.form.get('user_id', type=int)
+    course_id = request.form.get('course_id', type=int)
+    section = (request.form.get('section') or 'A').strip().upper()
+
+    user = db.session.get(User, user_id)
+    course = db.session.get(Course, course_id)
+    if not user or not course:
+        flash('Invalid student or course selected.', 'danger')
+        return redirect(url_for('admin_cr'))
+
+    existing = CRAssignment.query.filter_by(user_id=user.id, course_id=course.id, section=section).first()
+    if existing:
+        flash(f"{user.name} is already assigned as CR for {course.code} Sec {section}.", 'info')
+        return redirect(url_for('admin_cr'))
+
+    assignment = CRAssignment(
+        user_id=user.id,
+        course_id=course.id,
+        section=section,
+        assigned_by_id=current_user.id
+    )
+    user.role = 'cr'
+    db.session.add(assignment)
+    db.session.commit()
+    log_audit('cr.assigned', 'cr_assignment', assignment.id, f"Assigned {user.name} to {course.code} (Sec {section})")
+    flash(f"Designated {user.name} as Class Representative for {course.code} (Sec {section}).", 'success')
+    return redirect(url_for('admin_cr'))
+
+
+@app.route('/admin/cr/<int:assignment_id>/remove', methods=['POST'])
+@admin_required
+def admin_cr_remove(assignment_id):
+    """Revoke a CR assignment."""
+    assignment = db.session.get(CRAssignment, assignment_id)
+    if not assignment:
+        abort(404)
+    user = assignment.user
+    course = assignment.course
+    db.session.delete(assignment)
+    db.session.commit()
+
+    remaining = CRAssignment.query.filter_by(user_id=user.id).count()
+    if remaining == 0 and user.role == 'cr':
+        user.role = 'student'
+        db.session.commit()
+
+    log_audit('cr.revoked', 'cr_assignment', assignment_id, f"Revoked CR for {user.name} from {course.code}")
+    flash(f"Revoked CR authority from {user.name}.", 'info')
+    return redirect(url_for('admin_cr'))
+
+
+@app.route('/admin/resources')
+@admin_required
+def admin_resources():
+    """Admin Resource Vault moderation."""
+    status_filter = request.args.get('status', 'Pending Review')
+    resources_query = Resource.query
+    if status_filter != 'ALL':
+        resources_query = resources_query.filter_by(status=status_filter)
+    resources = resources_query.order_by(Resource.created_at.desc()).all()
+    return render_template('admin/resources.html', title='Resource Moderation', resources=resources, status_filter=status_filter)
+
+
+@app.route('/admin/resources/<int:resource_id>/approve', methods=['POST'])
+@admin_required
+def admin_resource_approve(resource_id):
+    """Approve a student uploaded resource."""
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        abort(404)
+    resource.status = 'Approved'
+    resource.rejection_reason = None
+    if resource.author:
+        resource.author.karma += 10
+    db.session.commit()
+    log_audit('resource.approved', 'resource', resource.id, f"Approved {resource.title} (+10 Karma to author)")
+    flash(f"Resource '{resource.title}' has been approved and published to the Academic Vault.", 'success')
+    return redirect(request.referrer or url_for('admin_resources'))
+
+
+@app.route('/admin/resources/<int:resource_id>/reject', methods=['POST'])
+@admin_required
+def admin_resource_reject(resource_id):
+    """Reject a resource with reason."""
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        abort(404)
+    reason = request.form.get('rejection_reason', 'Does not meet academic quality guidelines.').strip()
+    resource.status = 'Rejected'
+    resource.rejection_reason = reason
+    db.session.commit()
+    log_audit('resource.rejected', 'resource', resource.id, f"Reason: {reason}")
+    flash(f"Resource '{resource.title}' rejected.", 'warning')
+    return redirect(request.referrer or url_for('admin_resources'))
+
+
+@app.route('/admin/resources/<int:resource_id>/feature', methods=['POST'])
+@admin_required
+def admin_resource_toggle_feature(resource_id):
+    """Toggle featured state on resource."""
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        abort(404)
+    resource.is_featured = not resource.is_featured
+    db.session.commit()
+    log_audit('resource.featured', 'resource', resource.id, f"Featured: {resource.is_featured}")
+    flash(f"Resource featured status updated.", 'info')
+    return redirect(request.referrer or url_for('admin_resources'))
+
+
+@app.route('/admin/resources/<int:resource_id>/delete', methods=['POST'])
+@admin_required
+def admin_resource_delete(resource_id):
+    """Delete a resource."""
+    resource = db.session.get(Resource, resource_id)
+    if not resource:
+        abort(404)
+    title = resource.title
+    db.session.delete(resource)
+    db.session.commit()
+    log_audit('resource.deleted', 'resource', resource_id, f"Deleted {title}")
+    flash(f"Resource '{title}' deleted.", 'info')
+    return redirect(request.referrer or url_for('admin_resources'))
+
+
+@app.route('/admin/summaries')
+@admin_required
+def admin_summaries():
+    """Admin lecture summary moderation."""
+    course_id = request.args.get('course_id', type=int)
+    summaries_query = Summary.query
+    if course_id:
+        summaries_query = summaries_query.filter_by(course_id=course_id)
+    summaries = summaries_query.order_by(Summary.created_at.desc()).limit(100).all()
+    courses = Course.query.order_by(Course.code).all()
+    return render_template('admin/summaries.html', title='Summary Moderation', summaries=summaries, courses=courses, selected_course_id=course_id)
+
+
+@app.route('/admin/summaries/<int:summary_id>/delete', methods=['POST'])
+@admin_required
+def admin_summary_delete(summary_id):
+    """Remove inappropriate or erroneous summary."""
+    summary = db.session.get(Summary, summary_id)
+    if not summary:
+        abort(404)
+    topic = summary.topic or f"Summary #{summary.id}"
+    db.session.delete(summary)
+    db.session.commit()
+    log_audit('summary.deleted', 'summary', summary_id, f"Deleted summary: {topic}")
+    flash(f"Summary '{topic}' has been removed.", 'info')
+    return redirect(request.referrer or url_for('admin_summaries'))
+
+
+@app.route('/admin/announcements')
+@admin_required
+def admin_announcements():
+    """Admin announcements management."""
+    announcements = Announcement.query.order_by(Announcement.created_at.desc()).all()
+    courses = Course.query.order_by(Course.code).all()
+    form = AnnouncementForm()
+    return render_template('admin/announcements.html', title='Announcements Manager', announcements=announcements, courses=courses, form=form)
+
+
+@app.route('/admin/announcements/new', methods=['POST'])
+@admin_required
+def admin_announcement_new():
+    """Publish platform-wide or targeted official announcement."""
+    form = AnnouncementForm()
+    course_id = request.form.get('course_id', type=int)
+    target_scope = request.form.get('target_scope', 'platform')
+    is_pinned = bool(request.form.get('is_pinned'))
+
+    if form.validate_on_submit():
+        first_course = Course.query.first()
+        ann = Announcement(
+            course_id=course_id if target_scope != 'platform' and course_id else (first_course.id if first_course else 1),
+            user_id=current_user.id,
+            title=form.title.data.strip(),
+            content=form.content.data.strip(),
+            tag=form.tag.data,
+            target_scope=target_scope,
+            is_pinned=is_pinned
+        )
+        db.session.add(ann)
+        db.session.commit()
+        log_audit('announcement.published', 'announcement', ann.id, f"Title: {ann.title}, Scope: {target_scope}")
+        flash('Official announcement published!', 'success')
+    else:
+        for err in form.errors.values():
+            flash(f"Error: {err[0]}", 'danger')
+    return redirect(url_for('admin_announcements'))
+
+
+@app.route('/admin/announcements/<int:announcement_id>/delete', methods=['POST'])
+@admin_required
+def admin_announcement_delete(announcement_id):
+    """Delete an announcement."""
+    ann = db.session.get(Announcement, announcement_id)
+    if not ann:
+        abort(404)
+    db.session.delete(ann)
+    db.session.commit()
+    log_audit('announcement.deleted', 'announcement', announcement_id)
+    flash('Announcement removed.', 'info')
+    return redirect(url_for('admin_announcements'))
+
+
+@app.route('/admin/deadlines')
+@admin_required
+def admin_deadlines():
+    """Admin official academic deadlines and exam countdowns."""
+    deadlines = Deadline.query.order_by(Deadline.due_date.asc()).all()
+    courses = Course.query.order_by(Course.code).all()
+    form = DeadlineForm()
+    return render_template('admin/deadlines.html', title='Official Deadlines & Exams', deadlines=deadlines, courses=courses, form=form)
+
+
+@app.route('/admin/deadlines/new', methods=['POST'])
+@admin_required
+def admin_deadline_new():
+    """Publish official academic deadline or exam countdown."""
+    form = DeadlineForm()
+    if form.validate_on_submit():
+        dl = Deadline(
+            course_id=form.course_id.data,
+            user_id=current_user.id,
+            title=form.title.data.strip(),
+            due_date=form.due_date.data,
+            category=form.category.data,
+            priority=form.priority.data,
+            description=form.description.data.strip() if form.description.data else None,
+            is_official=True
+        )
+        db.session.add(dl)
+        db.session.commit()
+        log_audit('deadline.created', 'deadline', dl.id, f"Official Deadline: {dl.title} Due: {dl.due_date}")
+        flash('Official deadline broadcast to students.', 'success')
+    else:
+        for err in form.errors.values():
+            flash(f"Error: {err[0]}", 'danger')
+    return redirect(url_for('admin_deadlines'))
+
+
+@app.route('/admin/deadlines/<int:deadline_id>/delete', methods=['POST'])
+@admin_required
+def admin_deadline_delete(deadline_id):
+    """Delete an official deadline."""
+    dl = db.session.get(Deadline, deadline_id)
+    if not dl:
+        abort(404)
+    db.session.delete(dl)
+    db.session.commit()
+    log_audit('deadline.deleted', 'deadline', deadline_id)
+    flash('Deadline deleted.', 'info')
+    return redirect(url_for('admin_deadlines'))
+
+
+@app.route('/admin/reports')
+@admin_required
+def admin_reports():
+    """Admin content report and student safety center."""
+    status_filter = request.args.get('status', 'Open')
+    reports_query = Report.query
+    if status_filter != 'ALL':
+        reports_query = reports_query.filter_by(status=status_filter)
+    reports = reports_query.order_by(Report.created_at.desc()).all()
+    return render_template('admin/reports.html', title='Report & Moderation Center', reports=reports, status_filter=status_filter)
+
+
+@app.route('/admin/reports/<int:report_id>/status', methods=['POST'])
+@admin_required
+def admin_report_update_status(report_id):
+    """Update report status (Under Review, Resolved, Dismissed)."""
+    report = db.session.get(Report, report_id)
+    if not report:
+        abort(404)
+    new_status = request.form.get('status', 'Resolved')
+    notes = request.form.get('resolution_notes', '').strip()
+
+    report.status = new_status
+    report.resolution_notes = notes
+    report.resolved_by_id = current_user.id
+    db.session.commit()
+    log_audit('report.status_updated', 'report', report.id, f"Status: {new_status}, Notes: {notes}")
+    flash(f"Report #{report.id} marked as {new_status}.", 'success')
+    return redirect(request.referrer or url_for('admin_reports'))
+
+
+@app.route('/admin/feature-flags')
+@admin_required
+def admin_feature_flags():
+    """Feature flag controls."""
+    flags = FeatureFlag.query.order_by(FeatureFlag.name.asc()).all()
+    return render_template('admin/feature_flags.html', title='Feature Controls', flags=flags)
+
+
+@app.route('/admin/feature-flags/<string:key>/toggle', methods=['POST'])
+@admin_required
+def admin_feature_flag_toggle(key):
+    """Toggle feature flag on/off."""
+    flag = FeatureFlag.query.filter_by(key=key).first()
+    if not flag:
+        abort(404)
+    flag.is_enabled = not flag.is_enabled
+    db.session.commit()
+    log_audit('feature_flag.toggled', 'feature_flag', flag.key, f"Set to {flag.is_enabled}")
+    flash(f"Feature '{flag.name}' is now {'ENABLED' if flag.is_enabled else 'DISABLED'}.", 'success')
+    return redirect(url_for('admin_feature_flags'))
+
+
+@app.route('/admin/settings', methods=['GET', 'POST'])
+@admin_required
+def admin_settings():
+    """Global system configuration settings."""
+    form = SystemSettingsForm()
+    if request.method == 'GET':
+        try:
+            form.attendance_threshold.data = float(get_system_setting('attendance_threshold', '75.0'))
+            form.maintenance_mode.data = (get_system_setting('maintenance_mode', 'false') == 'true')
+            form.registration_enabled.data = (get_system_setting('registration_enabled', 'true') == 'true')
+            form.default_semester.data = int(get_system_setting('default_semester', '5'))
+        except Exception:
+            pass
+
+    if form.validate_on_submit():
+        settings_map = {
+            'attendance_threshold': str(form.attendance_threshold.data),
+            'maintenance_mode': 'true' if form.maintenance_mode.data else 'false',
+            'registration_enabled': 'true' if form.registration_enabled.data else 'false',
+            'default_semester': str(form.default_semester.data)
+        }
+        for k, v in settings_map.items():
+            s = SystemSetting.query.filter_by(key=k).first()
+            if s:
+                s.value = v
+            else:
+                db.session.add(SystemSetting(key=k, value=v))
+        db.session.commit()
+        log_audit('settings.updated', 'system_setting', None, f"Updated platform settings: {settings_map}")
+        flash('Platform settings updated successfully.', 'success')
+        return redirect(url_for('admin_settings'))
+
+    return render_template('admin/settings.html', title='Platform Settings', form=form)
+
+
+@app.route('/admin/audit-logs')
+@admin_required
+def admin_audit_logs():
+    """Administrative action audit history."""
+    action_filter = request.args.get('action', '')
+    logs_query = AuditLog.query
+    if action_filter:
+        logs_query = logs_query.filter(AuditLog.action.ilike(f"%{action_filter}%"))
+    logs = logs_query.order_by(AuditLog.created_at.desc()).limit(150).all()
+    return render_template('admin/audit_logs.html', title='System Audit Logs', logs=logs, action_filter=action_filter)
+
+
+@app.route('/admin/export/<string:entity>')
+@admin_required
+def admin_export_csv(entity):
+    """Export platform data to CSV format for backup and administrative reporting."""
+    si = io.StringIO()
+    writer = csv.writer(si)
+
+    if entity == 'users':
+        writer.writerow(['ID', 'Name', 'Email', 'Role', 'Karma', 'College', 'Program', 'Semester', 'Section', 'Suspended', 'Created At'])
+        for u in User.query.order_by(User.id).all():
+            writer.writerow([u.id, u.name, u.email, u.role, u.karma, u.college, u.program, u.semester, u.section, u.is_suspended, u.created_at])
+    elif entity == 'courses':
+        writer.writerow(['ID', 'Code', 'Name', 'Section', 'Semester', 'Instructor', 'Room', 'Schedule', 'Status', 'Archived'])
+        for c in Course.query.order_by(Course.id).all():
+            writer.writerow([c.id, c.code, c.name, c.section, c.semester, c.instructor, c.room, c.schedule, c.status, c.is_archived])
+    elif entity == 'resources':
+        writer.writerow(['ID', 'Course', 'Title', 'Category', 'URL', 'Author', 'Status', 'Downloads', 'Helpful Count', 'Created At'])
+        for r in Resource.query.order_by(Resource.id).all():
+            writer.writerow([r.id, r.course.code if r.course else '', r.title, r.category, r.resource_url, r.author.name if r.author else '', r.status, r.downloads, r.helpful_count, r.created_at])
+    elif entity == 'summaries':
+        writer.writerow(['ID', 'Course', 'Date', 'Topic', 'Category', 'Author', 'Verified', 'Verified By', 'Helpful Count', 'Created At'])
+        for s in Summary.query.order_by(Summary.id).all():
+            writer.writerow([s.id, s.course.code if s.course else '', s.date, s.topic, s.category, s.author.name if s.author else '', s.is_verified, s.verified_by, s.helpful_count, s.created_at])
+    elif entity == 'reports':
+        writer.writerow(['ID', 'Reporter', 'Target Type', 'Target ID', 'Category', 'Reason', 'Status', 'Resolution Notes', 'Created At'])
+        for rep in Report.query.order_by(Report.id).all():
+            writer.writerow([rep.id, rep.reporter.name if rep.reporter else '', rep.target_type, rep.target_id, rep.category, rep.reason, rep.status, rep.resolution_notes, rep.created_at])
+    else:
+        abort(404)
+
+    log_audit('data.exported', 'export', entity, f"Exported CSV for {entity}")
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename=classcatch_{entity}_{date.today()}.csv"}
+    )
+
+
+# ==========================================
 # Database Auto-seed & App Runner
 # ==========================================
 
 def init_db():
-    """Ensure database schema is created and populated with demo courses."""
+    """Ensure database schema is created and populated with demo courses and settings."""
     with app.app_context():
+        # Apply non-destructive column additions if running on PostgreSQL
+        engine = db.engine
+        if engine.dialect.name == 'postgresql':
+            try:
+                with engine.connect() as conn:
+                    queries = [
+                        'ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE;',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS college VARCHAR(120) DEFAULT \'GLA University\';',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS program VARCHAR(100) DEFAULT \'B.Tech CSE\';',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS semester INTEGER DEFAULT 5;',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS section VARCHAR(20) DEFAULT \'A\';',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_onboarded BOOLEAN DEFAULT TRUE;',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;',
+                        'ALTER TABLE resources ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT \'Approved\';',
+                        'ALTER TABLE resources ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE;',
+                        'ALTER TABLE resources ADD COLUMN IF NOT EXISTS rejection_reason TEXT;',
+                        'ALTER TABLE announcements ADD COLUMN IF NOT EXISTS target_scope VARCHAR(30) DEFAULT \'course\';',
+                        'ALTER TABLE announcements ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;',
+                        'ALTER TABLE deadlines ADD COLUMN IF NOT EXISTS is_official BOOLEAN DEFAULT FALSE;',
+                        'ALTER TABLE summaries ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE;'
+                    ]
+                    from sqlalchemy import text
+                    for q in queries:
+                        conn.execute(text(q))
+                    conn.commit()
+            except Exception as e:
+                print(f"[AUTO-MIGRATION NOTICE] {e}")
+
         db.create_all()
+
+        # Seed default feature flags if none exist
+        if FeatureFlag.query.count() == 0:
+            default_flags = [
+                FeatureFlag(key="catchup_feed", name="Missed Class Catch-up Engine", description="Aggregated multi-course lecture catch-up feed", is_enabled=True),
+                FeatureFlag(key="attendance_tracker", name="Attendance & Safe Bunk Predictor", description="Safe bunk and recovery math calculator", is_enabled=True),
+                FeatureFlag(key="academic_vault", name="Academic Resource & PYQ Vault", description="Student-shared previous exam questions and notes", is_enabled=True),
+                FeatureFlag(key="campus_chat", name="Unofficial Peer & Course Chat", description="Peer discussion and requirements exchange", is_enabled=True),
+                FeatureFlag(key="anonymous_doubts", name="Anonymous Doubt Clearing Mode", description="Masks student identity for honest doubts", is_enabled=True),
+                FeatureFlag(key="ai_ocr", name="AI Whiteboard-to-Notes OCR Engine", description="Transcribes classroom board photos into notes", is_enabled=True),
+                FeatureFlag(key="morning_dispatch", name="Morning Timetable & WhatsApp Digest", description="Daily academic briefing simulation", is_enabled=True),
+                FeatureFlag(key="karma_rewards", name="Peer Contribution & Karma System", description="Rewards students for quality lecture summaries", is_enabled=True)
+            ]
+            db.session.add_all(default_flags)
+            db.session.commit()
+
+        # Seed default system settings if none exist
+        if SystemSetting.query.count() == 0:
+            default_settings = [
+                SystemSetting(key="attendance_threshold", value="75.0", description="Institutional minimum attendance target percentage"),
+                SystemSetting(key="maintenance_mode", value="false", description="Restricts student access for scheduled maintenance"),
+                SystemSetting(key="registration_enabled", value="true", description="Allow new student registrations"),
+                SystemSetting(key="default_semester", value="5", description="Default active academic semester")
+            ]
+            db.session.add_all(default_settings)
+            db.session.commit()
+
         if Course.query.count() == 0:
             sample_courses = [
                 Course(

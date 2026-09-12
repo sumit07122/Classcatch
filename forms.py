@@ -213,3 +213,89 @@ class CourseForm(FlaskForm):
     ])
     submit = SubmitField('Add Course to Timetable')
 
+
+class OnboardingForm(FlaskForm):
+    """Form for student onboarding after registration."""
+    college = StringField('University / College Name', validators=[
+        DataRequired(message="Please enter your university or college name."),
+        Length(max=120)
+    ])
+    program = StringField('Branch / Degree Program (e.g., B.Tech CSE)', validators=[
+        DataRequired(message="Please enter your degree program."),
+        Length(max=100)
+    ])
+    semester = IntegerField('Current Semester', default=5, validators=[
+        DataRequired(message="Please enter your current semester."),
+        NumberRange(min=1, max=12)
+    ])
+    section = StringField('Section / Batch (e.g., A, B, Sec-1)', default='A', validators=[
+        DataRequired(message="Please enter your section."),
+        Length(max=20)
+    ])
+    submit = SubmitField('Complete Setup & Open ClassCatch 🚀')
+
+
+class ReportForm(FlaskForm):
+    """Form for reporting inappropriate, false, or abusive student content."""
+    category = SelectField('Report Category', choices=[
+        ('Spam', '🚫 Spam / Self-Promotion'),
+        ('Incorrect Information', '❌ Incorrect or Misleading Notes / Schedule'),
+        ('Inappropriate Content', '⚠️ Inappropriate / Obscene Material'),
+        ('Harassment', '🚨 Harassment / Bullying'),
+        ('Fake Resource', '🔗 Broken / Fake / Malicious Link'),
+        ('Abuse', '⚡ Platform Abuse / Cheating'),
+        ('Other', '📝 Other Issue')
+    ], default='Spam')
+    reason = TextAreaField('Why are you reporting this?', validators=[
+        DataRequired(message="Please describe the issue with this content."),
+        Length(min=5, max=1000, message="Reason must be between 5 and 1000 characters.")
+    ])
+    submit = SubmitField('Submit Report for Moderation')
+
+
+class AdminUserEditForm(FlaskForm):
+    """Form for administrative user role modification and profile updates."""
+    name = StringField('Full Name', validators=[DataRequired(), Length(max=100)])
+    email = StringField('Email Address', validators=[DataRequired(), Email()])
+    role = SelectField('Role', choices=[
+        ('student', 'Student'),
+        ('cr', 'Class Representative (CR)'),
+        ('admin', 'Platform Administrator'),
+        ('superadmin', 'Super Administrator')
+    ], default='student')
+    karma = IntegerField('Karma Points', validators=[NumberRange(min=0)])
+    is_suspended = BooleanField('Suspend User Account (Deny Access)')
+    submit = SubmitField('Update User')
+
+
+class CRAssignmentForm(FlaskForm):
+    """Form to designate a student as CR for a specific course and section."""
+    user_id = SelectField('Student', coerce=int, validators=[DataRequired()])
+    course_id = SelectField('Course', coerce=int, validators=[DataRequired()])
+    section = StringField('Section / Batch', default='A', validators=[DataRequired(), Length(max=20)])
+    submit = SubmitField('Assign as Class Representative')
+
+
+class BulkCourseImportForm(FlaskForm):
+    """Form for pasting CSV course data for bulk course/schedule creation."""
+    csv_data = TextAreaField('CSV Course Data', validators=[
+        DataRequired(message="Please paste CSV data.")
+    ], render_kw={
+        "placeholder": "code,name,section,semester,instructor,room,schedule\nCSE-301,Database Management Systems,A,5,Dr. Sharma,Room 304,Mon Wed Fri 10:00 AM\nCSE-302,Operating Systems,A,5,Prof. Verma,Hall 2,Tue Thu 11:30 AM",
+        "rows": 8
+    })
+    submit = SubmitField('Preview & Validate Courses')
+
+
+class SystemSettingsForm(FlaskForm):
+    """Form for global platform settings."""
+    attendance_threshold = FloatField('Default Attendance Target (%)', default=75.0, validators=[
+        DataRequired(), NumberRange(min=50.0, max=100.0)
+    ])
+    maintenance_mode = BooleanField('Enable Maintenance Mode (Restricts ordinary student access)')
+    registration_enabled = BooleanField('Allow New Student Registrations')
+    default_semester = IntegerField('Default Semester', default=5, validators=[
+        DataRequired(), NumberRange(min=1, max=12)
+    ])
+    submit = SubmitField('Save Platform Settings')
+

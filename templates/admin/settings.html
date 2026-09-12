@@ -1,0 +1,67 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<div class="admin-card" style="max-width: 800px;">
+    <div style="margin-bottom: 1.5rem;">
+        <h3 style="margin: 0; color: #fff; font-size: 1.15rem;">
+            <i class="fa-solid fa-sliders text-primary"></i> Global Platform & Academic Settings
+        </h3>
+        <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">
+            Configure academic baselines, platform maintenance mode, and registration access policies.
+        </p>
+    </div>
+
+    <form action="{{ url_for('admin_settings') }}" method="POST">
+        {{ form.hidden_tag() }}
+
+        <div style="margin-bottom: 1.5rem;">
+            <label style="font-weight: 700; color: #fff; font-size: 0.9rem; display: block; margin-bottom: 0.25rem;">
+                Default Attendance Criteria Target (%)
+            </label>
+            <p style="font-size: 0.75rem; color: #9ca3af; margin: 0 0 0.5rem;">
+                The default percentage threshold used for calculating safe bunks and attendance recovery. Default is 75%.
+            </p>
+            {{ form.attendance_threshold(class="form-control", style="max-width: 200px; background: var(--admin-card); border: 1px solid var(--admin-border); color: #fff; padding: 0.5rem; border-radius: 6px; font-size: 0.9rem;") }}
+        </div>
+
+        <div style="margin-bottom: 1.5rem; padding: 1.25rem; background: var(--admin-card); border: 1px solid var(--admin-border); border-radius: 8px;">
+            <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer;">
+                {{ form.maintenance_mode(style="margin-top: 0.25rem;") }}
+                <div>
+                    <span style="font-weight: 700; color: #f59e0b; font-size: 0.95rem; display: block;">
+                        ⚠️ Enable Platform Maintenance Mode
+                    </span>
+                    <span style="font-size: 0.8rem; color: #9ca3af; display: block; margin-top: 0.2rem;">
+                        When active, ordinary student access is redirected to a clean maintenance splash screen. Platform Administrators retain full uninterrupted access to this Admin Control Center.
+                    </span>
+                </div>
+            </label>
+        </div>
+
+        <div style="margin-bottom: 1.5rem; padding: 1.25rem; background: var(--admin-card); border: 1px solid var(--admin-border); border-radius: 8px;">
+            <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer;">
+                {{ form.registration_enabled(style="margin-top: 0.25rem;") }}
+                <div>
+                    <span style="font-weight: 700; color: #fff; font-size: 0.95rem; display: block;">
+                        Allow New Student Registrations
+                    </span>
+                    <span style="font-size: 0.8rem; color: #9ca3af; display: block; margin-top: 0.2rem;">
+                        Uncheck to freeze student registrations during exam periods or semester roll-overs.
+                    </span>
+                </div>
+            </label>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+            <label style="font-weight: 700; color: #fff; font-size: 0.9rem; display: block; margin-bottom: 0.25rem;">
+                Default Active Academic Semester
+            </label>
+            {{ form.default_semester(class="form-control", style="max-width: 200px; background: var(--admin-card); border: 1px solid var(--admin-border); color: #fff; padding: 0.5rem; border-radius: 6px; font-size: 0.9rem;") }}
+        </div>
+
+        <button type="submit" class="admin-btn admin-btn-primary" style="padding: 0.6rem 1.25rem; font-size: 0.9rem;">
+            <i class="fa-solid fa-floppy-disk"></i> Save Configuration
+        </button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<div class="admin-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h3 style="margin: 0; color: #fff; font-size: 1.15rem;">
+                System Operational Audit Trail ({{ logs|length }})
+            </h3>
+            <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">
+                Immutable chronological log of all administrative actions, role modifications, moderation decisions, and data exports.
+            </p>
+        </div>
+
+        <form method="GET" action="{{ url_for('admin_audit_logs') }}" style="display: flex; gap: 0.5rem;">
+            <input type="text" name="action" value="{{ action_filter }}" placeholder="Filter by action (e.g. user, role, course)..." style="background: var(--admin-card); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.85rem; border-radius: 6px; font-size: 0.85rem; min-width: 250px;">
+            <button type="submit" class="admin-btn admin-btn-primary">Search</button>
+            {% if action_filter %}
+                <a href="{{ url_for('admin_audit_logs') }}" class="admin-btn admin-btn-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Operator</th>
+                    <th>Action</th>
+                    <th>Target Type & ID</th>
+                    <th>Event Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if logs %}
+                    {% for l in logs %}
+                        <tr>
+                            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #9ca3af;">
+                                {{ l.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #fff;">{{ l.user.name if l.user else 'System' }}</div>
+                                <div style="font-size: 0.75rem; color: #9ca3af;">{{ l.user.role if l.user else '' }}</div>
+                            </td>
+                            <td>
+                                <span class="badge-role" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; font-family: 'JetBrains Mono', monospace;">
+                                    {{ l.action }}
+                                </span>
+                            </td>
+                            <td>
+                                <span style="font-size: 0.8rem; color: #d1d5db;">
+                                    {{ l.target_type or '-' }} {% if l.target_id %}#{{ l.target_id }}{% endif %}
+                                </span>
+                            </td>
+                            <td style="font-size: 0.8rem; color: #9ca3af;">
+                                {{ l.details or '-' }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #9ca3af; padding: 2rem;">
+                            No audit log events found.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

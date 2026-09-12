@@ -1,0 +1,142 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<div class="admin-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h3 style="margin: 0; color: #fff; font-size: 1.15rem;">
+                Academic Courses & Timetable ({{ courses|length }})
+            </h3>
+            <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">
+                Official college course schedules, lecture venues, and professor assignments.
+            </p>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <a href="{{ url_for('admin_courses', archived=0) }}" class="admin-btn {% if not show_archived %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}">
+                Active Courses
+            </a>
+            <a href="{{ url_for('admin_courses', archived=1) }}" class="admin-btn {% if show_archived %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}">
+                Archived Courses
+            </a>
+            <a href="{{ url_for('admin_course_import') }}" class="admin-btn admin-btn-secondary">
+                <i class="fa-solid fa-file-import"></i> Bulk CSV Import
+            </a>
+        </div>
+    </div>
+
+    <!-- Add Course Form Card -->
+    <div style="background: var(--admin-card); border: 1px solid var(--admin-border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+        <h4 style="margin: 0 0 1rem; color: #fff; font-size: 0.95rem;">
+            <i class="fa-solid fa-plus text-primary"></i> Add New Official Course
+        </h4>
+        <form action="{{ url_for('admin_course_new') }}" method="POST">
+            {{ form.hidden_tag() }}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Course Code *</label>
+                    <input type="text" name="code" placeholder="e.g. CSE-305" required style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.4rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Course Title *</label>
+                    <input type="text" name="name" placeholder="e.g. Artificial Intelligence" required style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.4rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Section / Batch</label>
+                    <input type="text" name="section" value="A" style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.4rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Semester</label>
+                    <input type="number" name="semester" value="5" min="1" max="12" style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.4rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Professor / Instructor</label>
+                    <input type="text" name="instructor" placeholder="e.g. Dr. A. Sharma" style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.4rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Room / Lecture Hall</label>
+                    <input type="text" name="room" placeholder="e.g. Room 302, Block B" style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.4rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Weekly Schedule Timings</label>
+                    <input type="text" name="schedule" placeholder="e.g. Mon, Wed, Fri (10:00 AM - 11:30 AM)" style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.4rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                </div>
+            </div>
+            <button type="submit" class="admin-btn admin-btn-success">
+                <i class="fa-solid fa-check"></i> Create Course
+            </button>
+        </form>
+    </div>
+
+    <!-- Courses Table -->
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Code & Title</th>
+                    <th>Sec / Sem</th>
+                    <th>Professor</th>
+                    <th>Location & Timetable</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Manage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in courses %}
+                    <tr>
+                        <td>
+                            <div style="font-weight: 700; color: #fff;">{{ c.code }} - {{ c.name }}</div>
+                            <div style="font-size: 0.75rem; color: #9ca3af;">
+                                <a href="{{ url_for('course_detail', course_id=c.id) }}" target="_blank" style="color: #60a5fa; text-decoration: none;">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Student Hub
+                                </a>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge-role" style="background: #374151;">Sec {{ c.section }}</span>
+                            <span style="font-size: 0.8rem; color: #9ca3af;">Sem {{ c.semester }}</span>
+                        </td>
+                        <td style="font-size: 0.85rem; color: #d1d5db;">
+                            {{ c.instructor }}
+                        </td>
+                        <td>
+                            <div style="font-weight: 600; font-size: 0.85rem; color: #fff;">{{ c.room }}</div>
+                            <div style="font-size: 0.75rem; color: #9ca3af;">{{ c.schedule }}</div>
+                        </td>
+                        <td>
+                            {% if c.is_archived %}
+                                <span class="badge-role" style="background: #ef4444;">ARCHIVED</span>
+                            {% else %}
+                                <span class="badge-role" style="background: #059669;">ACTIVE</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                            <div style="display: inline-flex; gap: 0.4rem;">
+                                <!-- Toggle Archive Form -->
+                                <form action="{{ url_for('admin_course_toggle_archive', course_id=c.id) }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="admin-btn admin-btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                        {% if c.is_archived %}
+                                            <i class="fa-solid fa-box-open"></i> Restore
+                                        {% else %}
+                                            <i class="fa-solid fa-box-archive"></i> Archive
+                                        {% endif %}
+                                    </button>
+                                </form>
+
+                                <!-- Delete (SuperAdmin only) -->
+                                {% if current_user.is_superadmin() %}
+                                    <form action="{{ url_for('admin_course_delete', course_id=c.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Permanently delete course {{ c.code }}? This deletes related student summaries and attendance records!');">
+                                        <button type="submit" class="admin-btn admin-btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

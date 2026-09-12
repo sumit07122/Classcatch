@@ -1,0 +1,128 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<div class="admin-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h3 style="margin: 0; color: #fff; font-size: 1.15rem;">
+                Official Announcements & Broadcasts ({{ announcements|length }})
+            </h3>
+            <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">
+                Broadcast emergency alerts, room changes, holiday notices, and official university exam updates.
+            </p>
+        </div>
+    </div>
+
+    <!-- Create Announcement Form -->
+    <div style="background: var(--admin-card); border: 1px solid var(--admin-border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+        <h4 style="margin: 0 0 1rem; color: #fff; font-size: 0.95rem;">
+            <i class="fa-solid fa-bullhorn text-primary"></i> Broadcast New Announcement
+        </h4>
+        <form action="{{ url_for('admin_announcement_new') }}" method="POST">
+            {{ form.hidden_tag() }}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                <div style="grid-column: span 2;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Announcement Title *</label>
+                    <input type="text" name="title" placeholder="e.g. Midterm Examination Schedule Released" required style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Category / Priority</label>
+                    <select name="tag" style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                        <option value="Urgent">🚨 Urgent Notice</option>
+                        <option value="Exam">📝 Exam / Midterm Update</option>
+                        <option value="Room Change">🚪 Room / Venue Change</option>
+                        <option value="Assignment">⏰ Assignment Notice</option>
+                        <option value="General" selected>📢 General Campus Notice</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Target Scope</label>
+                    <select name="target_scope" style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                        <option value="platform" selected>Entire College Platform</option>
+                        <option value="course">Specific Course Only</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Associated Course (Optional)</label>
+                    <select name="course_id" style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                        {% for c in courses %}
+                            <option value="{{ c.id }}">{{ c.code }} - {{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Detailed Announcement Message *</label>
+                <textarea name="content" rows="3" required placeholder="Write detailed instructions, venue changes, or timings..." style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;"></textarea>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #d1d5db; cursor: pointer;">
+                    <input type="checkbox" name="is_pinned" value="1">
+                    <span>📌 Pin Announcement to Student Dashboard Top</span>
+                </label>
+                <button type="submit" class="admin-btn admin-btn-primary">
+                    <i class="fa-solid fa-paper-plane"></i> Publish Official Announcement
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Announcements Table -->
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Title & Message</th>
+                    <th>Priority</th>
+                    <th>Scope</th>
+                    <th>Date Published</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if announcements %}
+                    {% for a in announcements %}
+                        <tr>
+                            <td>
+                                <div style="font-weight: 700; color: #fff;">
+                                    {% if a.is_pinned %}<i class="fa-solid fa-thumbtack text-warning"></i>{% endif %}
+                                    {{ a.title }}
+                                </div>
+                                <div style="font-size: 0.75rem; color: #9ca3af; max-width: 450px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    {{ a.content }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge-role" style="background: {% if a.tag=='Urgent' %}#dc2626{% elif a.tag=='Exam' %}#d97706{% else %}#2563eb{% endif %}; color: #fff;">
+                                    {{ a.tag }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge-role" style="background: #374151; text-transform: uppercase;">
+                                    {{ a.target_scope }}
+                                </span>
+                            </td>
+                            <td style="font-size: 0.8rem; color: #9ca3af;">
+                                {{ a.created_at.strftime('%b %d, %Y') }}
+                            </td>
+                            <td style="text-align: right;">
+                                <form action="{{ url_for('admin_announcement_delete', announcement_id=a.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete announcement?');">
+                                    <button type="submit" class="admin-btn admin-btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #9ca3af; padding: 2rem;">
+                            No active announcements. Broadcast one using the form above.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

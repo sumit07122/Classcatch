@@ -1,149 +1,150 @@
-# 🎓 ClassCatch
+# 🎓 ClassCatch — Production Academic Companion & Campus Operations Platform
 
-> **Peer-Powered Class Catch-up & Student Hub for College Students**
+> **"Missed class? ClassCatch catches it for you."**
 
-ClassCatch empowers students who attended a class to post concise lecture summaries, assignments given, and announcements made. Students who missed the class can easily catch up by selecting their course and date.
-
-Additionally, ClassCatch features an **Unofficial Class Chat** for peer requirements and doubts, a **Class Announcements Board**, an **Interactive Attendance & Bunk Calculator**, and a **Class Timetable & Room Availability Tracker**.
+ClassCatch is a student-first academic workspace and institutional management platform built for college students and academic administrators. It solves the daily friction of missed lectures, urgent deadlines, safe bunk predictions, and academic resource sharing.
 
 ---
 
-## 🌟 Key Features
+## 🌟 Architecture & Core Pillars
 
-1. **Class Catch-up Board**:
-   - Date-sorted lecture recaps with topic, concepts, homework assigned, and announcements.
-   - Date picker filter to pinpoint exact missed lecture dates.
-   - Upvote / *"Found this Helpful"* counter for top student contributors.
-2. **💬 Unofficial Class Chat & Campus Lounge**:
-   - Dedicated peer chat rooms for each course + a campus-wide lounge.
-   - Filter discussions by: *🙋 Requirement*, *❓ Question / Doubt*, *📄 Notes Request*, and *💬 General*.
-3. **📢 Class Notice & Announcement Hub**:
-   - Important notices with priority tags (*Exam*, *Quiz*, *Assignment Deadline*, *Room Change*, *Urgent*).
-4. **🧮 Interactive Attendance & Bunk Predictor**:
-   - Real-time client-side calculator: calculates attendance percentage.
-   - **Safe Bunks Predictor**: Tells you how many consecutive classes you can safely skip while staying $\ge 75\%$.
-   - **Recovery Predictor**: Tells you how many consecutive classes you must attend to climb back above $75\%$.
-   - Save and track attendance records per enrolled course on your student profile.
-5. **🗓️ Class Timetable & Room Availability**:
-   - View scheduled lecture theater/lab rooms, instructor names, weekly time slots, and real-time class status (*Scheduled*, *Cancelled*, *Extra Class*).
-6. **🔐 Authentication & Security**:
-   - Secure student registration and login with session management via `Flask-Login`.
-   - Passwords securely hashed with `Werkzeug`.
-   - Form validation & CSRF protection with `Flask-WTF`.
+### 1. Student Academic Workspace
+* **Absence & Catch-Up Engine (`/catchup`)**: Multi-course aggregated lecture notes for any date. Includes 1-click **WhatsApp-formatted digest export** to keep study groups in sync.
+* **1-Tap Attendance & Safe Bunk Predictor (`/attendance`)**: Instant `+ Present` and `+ Missed` buttons per subject. Real-time safe bunk countdown ($\ge 75\%$) and recovery class requirements.
+* **Academic Resource Vault (`/resources`)**: Community-shared Previous Year Questions (PYQs), formula cheat sheets, and tested lab manuals with download metrics and helpful ratings.
+* **Global Academic Search (`/search`)**: Instant multi-table search across subjects, summaries, deadlines, and vault files with keyboard shortcut (`/`).
+* **Unofficial Peer Chat & Doubt Mode (`/lounge`)**: Course-specific discussions and anonymous doubt clearing.
+* **AI Whiteboard-to-Notes OCR (`/api/save-whiteboard-note`)**: Client-side photo scanner with live thumbnail preview and 1-tap save into structured course notes.
 
 ---
 
-## 🛠️ Tech Stack
+### 2. Admin Control Center (`/admin`)
+ClassCatch includes an enterprise-grade, code-free administrative management console:
 
-- **Backend**: Python 3, Flask 3.0+
-- **Database & ORM**: SQLite, Flask-SQLAlchemy
-- **Authentication**: Flask-Login
-- **Forms & Validation**: Flask-WTF, WTForms, email-validator
-- **Frontend & Styling**: HTML5, Vanilla CSS, Bootstrap 5.3 CDN, Bootstrap Icons, FontAwesome 6, Google Fonts (*Plus Jakarta Sans*)
-
----
-
-## 📂 Project Structure
-
-```
-gla/
-├── app.py                  # Main Flask application and routing logic
-├── models.py               # SQLAlchemy database models (User, Course, Summary, ChatMessage, etc.)
-├── forms.py                # Flask-WTF validated form definitions
-├── seed.py                 # Database initialization & mock data seed script
-├── requirements.txt        # Python dependencies
-├── README.md               # Project documentation and setup guide
-├── static/
-│   └── css/
-│       └── style.css       # Custom modern UI styling, chat bubbles, and indicators
-└── templates/
-    ├── base.html           # Master layout with navigation, flash toasts, and footer
-    ├── index.html          # Dashboard (course directory, today's recaps, notice board)
-    ├── course.html         # Course hub (Catch-ups, Unofficial Chat, Notices, Timetable)
-    ├── attendance.html     # Interactive attendance calculator & course-wise tracker
-    ├── lounge.html         # Campus-wide unofficial student lounge & requirements feed
-    ├── post_summary.html   # Dedicated summary publishing form
-    ├── summary_detail.html # Full view for an individual lecture catch-up note
-    ├── login.html          # Clean card-based login screen
-    └── register.html       # Clean student sign-up screen
-```
+| Admin Module | Route | Capabilities |
+| :--- | :--- | :--- |
+| **Operational Dashboard** | `/admin` | Real-time metrics (users, active courses, pending approvals, open reports, audit stream, 1-click CSV exports). |
+| **User & Access Control** | `/admin/users` | Search, filter by role, promote/demote (Student, CR, Admin, SuperAdmin), account suspension. |
+| **Course & Schedule Manager** | `/admin/courses` | Create, edit, archive, and delete official courses, lecture hall assignments, and weekly timings. |
+| **Bulk CSV Course Import** | `/admin/courses/import` | Paste tabular schedule data from Excel/Sheets with live schema validation and preview before commit. |
+| **CR Authority Center** | `/admin/cr` | Designate Class Representatives (CRs) per subject/section with server-side authorization enforcement. |
+| **Resource Vault Moderation** | `/admin/resources` | Review student-uploaded PYQs and slides; 1-click Approve, Reject with customized feedback, or Feature. |
+| **Lecture Note Moderation** | `/admin/summaries` | Inspect and remove inaccurate summaries or verify notes on behalf of instructors. |
+| **Official Announcements** | `/admin/announcements` | Publish platform-wide or course-targeted notices with priority flags (`Urgent`, `Exam`, `Room Change`). |
+| **Official Deadlines & Exams** | `/admin/deadlines` | Broadcast department midterms, quizzes, and project evaluation dates directly to student countdowns. |
+| **Student Safety & Reports** | `/admin/reports` | Moderation center for student-submitted reports (`Spam`, `Incorrect Info`, `Harassment`, `Broken Link`). |
+| **Feature Controls & Killswitches** | `/admin/feature-flags` | Toggle platform modules on/off live without code changes (`catchup_feed`, `attendance_tracker`, `ai_ocr`, etc.). |
+| **Platform Settings** | `/admin/settings` | Configure minimum attendance target %, enable/disable Maintenance Mode, toggle student registration. |
+| **Operational Audit Logs** | `/admin/audit-logs` | Immutable chronological trail of all administrative actions, role modifications, and moderation decisions. |
+| **1-Click Data Backups** | `/admin/export/<type>` | Instant CSV exports for Users, Courses, Resources, Summaries, and Reports. |
 
 ---
 
-## 🚀 Step-by-Step Setup & Run Instructions
+## 👥 Role-Based Access Control (RBAC)
 
-### 1. Clone or Navigate to Project Directory
+1. **Student (`student`)**:
+   - Manage personal attendance, calculate safe bunks, post lecture catch-up notes, share resources, join peer chats, and report content.
+2. **Class Representative (`cr`)**:
+   - Authorized per course/section. Can verify lecture summaries (`CR Verified` badge) and post course-wide announcements. Blocked from verifying own summaries to prevent Karma farming.
+3. **Platform Administrator (`admin`)**:
+   - Full access to `/admin` operations: User management, course creation, resource moderation, official deadlines, feature controls, and data exports.
+4. **Super Administrator (`superadmin`)**:
+   - Full platform governance: Permanent course deletions, administrative role promotions, and platform-wide emergency maintenance mode.
+
+---
+
+## 🚀 Quickstart & Local Development
+
+### 1. Prerequisites
+* Python 3.10+
+* Git
+
+### 2. Setup Environment
 ```powershell
-cd c:\Users\hp\OneDrive\Desktop\gla
-```
+# Clone the repository
+git clone https://github.com/sumit07122/Classcatch.git
+cd Classcatch
 
-### 2. Create and Activate a Virtual Environment
-```powershell
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv venv
-
-# Activate on Windows PowerShell
 .\venv\Scripts\Activate.ps1
 
-# (If PowerShell displays an execution policy error, run:)
-# Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-
-### 3. Install Dependencies
-```powershell
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 4. Seed the Database with Sample Data
-Run `seed.py` to automatically create all tables and populate realistic courses, sample catch-ups, chat discussions, and announcements:
+### 3. Configure Database
+Create a `.env` file in the root directory:
+```env
+DATABASE_URL=postgresql://neondb_owner:npg_1aH6lbvWfhzc@ep-divine-heart-aeteyc0r-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require
+SECRET_KEY=classcatch-production-secret-2026
+```
+*(If `DATABASE_URL` is omitted, ClassCatch automatically defaults to local SQLite `sqlite:///classcatch.db`).*
+
+### 4. Run Automated Test Suite
+Run the 20 comprehensive end-to-end and RBAC test suites:
 ```powershell
-python seed.py
+python test_app.py
 ```
 
-### 5. Start the Application
+### 5. Start Development Server
 ```powershell
 python app.py
-```
-Open your browser and navigate to:
-```
-http://127.0.0.1:5000
+# Server runs at http://127.0.0.1:5000
 ```
 
 ---
 
-## 🔑 Demo Accounts
+## 🔑 Demo & Test Credentials
 
-Use any of these pre-seeded student accounts to test:
-
-| Student Name | Email | Password | Role |
+| Role | Email | Password | Access Level |
 | :--- | :--- | :--- | :--- |
-| **Alex Rivera** | `alex@classcatch.edu` | `password123` | Student |
-| **Sarah Chen** | `sarah@classcatch.edu` | `password123` | Student |
-| **David Sharma** | `david@classcatch.edu` | `password123` | Student |
-
-*You can also register a brand new student account via the **"Join ClassCatch"** button on the top navigation.*
-
----
-
-## 📊 Database Models Overview
-
-- **`User`**: `id`, `name`, `email`, `password_hash`, `role`, `avatar_color`
-- **`Course`**: `id`, `name`, `code`, `section`, `semester`, `instructor`, `room`, `schedule`, `status`
-- **`Summary`**: `id`, `course_id` (FK), `user_id` (FK), `date`, `topic`, `category`, `content`, `helpful_count`, `created_at`
-- **`ChatMessage`**: `id`, `course_id` (FK, nullable), `user_id` (FK), `message`, `category`, `created_at`
-- **`Announcement`**: `id`, `course_id` (FK), `user_id` (FK), `title`, `content`, `tag`, `created_at`
-- **`AttendanceRecord`**: `id`, `user_id` (FK), `course_id` (FK), `total_classes`, `attended_classes`, `target_percentage`
+| **Super Admin** | `superadmin@classcatch.edu` | `password123` | Full Platform & System Control (`/admin`) |
+| **Admin** | `admin@classcatch.edu` | `password123` | Administrative Control Center (`/admin`) |
+| **Class Rep (CR)** | `alex@classcatch.edu` | `password123` | CR for CSE-301 & Verified Contributor |
+| **Student 1** | `sarah@classcatch.edu` | `password123` | Standard Student Profile |
+| **Student 2** | `david@classcatch.edu` | `password123` | Standard Student Profile |
 
 ---
 
-## 💡 How Bunk Prediction Works
+## 🛠️ CLI Management Utilities
 
-- **Safe Bunk Formula**:
-  $$\text{Safe Bunks} = \left\lfloor \frac{\text{Attended Classes}}{\text{Target \%} / 100} \right\rfloor - \text{Total Classes}$$
-- **Recovery Requirement Formula**:
-  $$\text{Classes Needed} = \left\lceil \frac{(\text{Target \%} / 100) \times \text{Total} - \text{Attended}}{1 - (\text{Target \%} / 100)} \right\rceil$$
+### Create / Elevate a SuperAdmin
+Create a new administrator or elevate an existing student account:
+```powershell
+python clean_slate.py --create-admin --name "Dean of Academics" --email "admin@college.edu" --password "securepassword123"
+```
+
+### Clean Mock Data for Production Launch
+```powershell
+# Clear dummy activity but preserve courses, timetables, and system settings:
+python clean_slate.py --activity-only
+
+# Complete factory reset:
+python clean_slate.py --full-reset
+```
 
 ---
 
-## 📄 License
-This project is open-source for college education and peer learning.
+## ☁️ Production Deployment (Vercel — $0 Tier)
+
+1. Push your code to GitHub: `https://github.com/sumit07122/Classcatch.git`.
+2. Navigate to [Vercel](https://vercel.com/) and click **New Project** $\rightarrow$ Import `sumit07122/Classcatch`.
+3. Under **Environment Variables**, add:
+   * `DATABASE_URL` = your Neon Serverless Postgres connection string.
+   * `SECRET_KEY` = any secure random 32-character string.
+4. Click **Deploy**. Vercel will deploy ClassCatch with automatic SSL.
+
+---
+
+## 📱 Google Play Store (PWABuilder Android TWA)
+
+ClassCatch includes full Google Play compliance fixtures:
+* `manifest.json` & PWA Service Worker caching (`static/sw.js`).
+* Digital Asset Links (`/.well-known/assetlinks.json`) for full-screen chrome-less operation.
+* Mandatory Privacy Policy (`/privacy`) and Terms of Service (`/terms`).
+
+**Packaging Steps:**
+1. Open [PWABuilder.com](https://www.pwabuilder.com/).
+2. Enter your live production URL.
+3. Click **Package for Android** to generate your signed `app-release.aab` ready for upload to the Google Play Developer Console. Reference [PLAY_STORE_PACKAGE_GUIDE.md](file:///c:/Users/hp/OneDrive/Desktop/gla/PLAY_STORE_PACKAGE_GUIDE.md) for full release details.

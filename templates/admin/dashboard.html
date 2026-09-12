@@ -1,0 +1,252 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<!-- Quick Stat Grid -->
+<div class="stat-grid">
+    <div class="stat-box">
+        <div>
+            <div class="val">{{ stats.total_users }}</div>
+            <div class="lbl">Registered Users ({{ stats.students }} Students, {{ stats.crs }} CRs)</div>
+        </div>
+        <i class="fa-solid fa-users icon text-primary"></i>
+    </div>
+    <div class="stat-box">
+        <div>
+            <div class="val">{{ stats.courses }}</div>
+            <div class="lbl">Active Courses ({{ stats.archived_courses }} Archived)</div>
+        </div>
+        <i class="fa-solid fa-book-open icon text-success"></i>
+    </div>
+    <div class="stat-box">
+        <div>
+            <div class="val" style="color: #f59e0b;">{{ stats.pending_resources }}</div>
+            <div class="lbl">Resources Pending Review</div>
+        </div>
+        <i class="fa-solid fa-clock-rotate-left icon" style="color: #f59e0b;"></i>
+    </div>
+    <div class="stat-box">
+        <div>
+            <div class="val" style="color: #ef4444;">{{ stats.open_reports }}</div>
+            <div class="lbl">Open Moderation Reports</div>
+        </div>
+        <i class="fa-solid fa-flag icon" style="color: #ef4444;"></i>
+    </div>
+</div>
+
+<!-- Secondary Stats Row -->
+<div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+    <div class="stat-box" style="padding: 0.85rem 1rem;">
+        <div>
+            <div class="val" style="font-size: 1.25rem;">{{ stats.summaries }}</div>
+            <div class="lbl" style="font-size: 0.75rem;">Lecture Notes</div>
+        </div>
+        <i class="fa-solid fa-newspaper icon text-muted"></i>
+    </div>
+    <div class="stat-box" style="padding: 0.85rem 1rem;">
+        <div>
+            <div class="val" style="font-size: 1.25rem;">{{ stats.resources }}</div>
+            <div class="lbl" style="font-size: 0.75rem;">Vault Resources</div>
+        </div>
+        <i class="fa-solid fa-folder icon text-muted"></i>
+    </div>
+    <div class="stat-box" style="padding: 0.85rem 1rem;">
+        <div>
+            <div class="val" style="font-size: 1.25rem;">{{ stats.deadlines }}</div>
+            <div class="lbl" style="font-size: 0.75rem;">Deadlines Tracked</div>
+        </div>
+        <i class="fa-solid fa-calendar-check icon text-muted"></i>
+    </div>
+    <div class="stat-box" style="padding: 0.85rem 1rem;">
+        <div>
+            <div class="val" style="font-size: 1.25rem;">{{ stats.chat_messages }}</div>
+            <div class="lbl" style="font-size: 0.75rem;">Peer Messages</div>
+        </div>
+        <i class="fa-solid fa-comments icon text-muted"></i>
+    </div>
+</div>
+
+<!-- Quick Action Strip & Data Export -->
+<div class="admin-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">⚡ Operational Quick Actions</h3>
+            <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">Perform frequent administrative tasks instantly</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="{{ url_for('admin_courses') }}" class="admin-btn admin-btn-primary">
+                <i class="fa-solid fa-plus"></i> New Course
+            </a>
+            <a href="{{ url_for('admin_course_import') }}" class="admin-btn admin-btn-secondary">
+                <i class="fa-solid fa-file-import"></i> Bulk CSV Import
+            </a>
+            <a href="{{ url_for('admin_cr') }}" class="admin-btn admin-btn-secondary">
+                <i class="fa-solid fa-user-shield"></i> Assign CR
+            </a>
+            <a href="{{ url_for('admin_announcements') }}" class="admin-btn admin-btn-secondary">
+                <i class="fa-solid fa-bullhorn"></i> Announcement
+            </a>
+            <a href="{{ url_for('admin_deadlines') }}" class="admin-btn admin-btn-secondary">
+                <i class="fa-solid fa-clock"></i> Official Exam
+            </a>
+        </div>
+    </div>
+
+    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--admin-border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+        <span style="font-size: 0.8rem; font-weight: 600; color: #9ca3af;">
+            <i class="fa-solid fa-download"></i> 1-Click CSV Data Backups:
+        </span>
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+            <a href="{{ url_for('admin_export_csv', entity='users') }}" class="admin-btn admin-btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Users.csv</a>
+            <a href="{{ url_for('admin_export_csv', entity='courses') }}" class="admin-btn admin-btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Courses.csv</a>
+            <a href="{{ url_for('admin_export_csv', entity='resources') }}" class="admin-btn admin-btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Resources.csv</a>
+            <a href="{{ url_for('admin_export_csv', entity='summaries') }}" class="admin-btn admin-btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Summaries.csv</a>
+            <a href="{{ url_for('admin_export_csv', entity='reports') }}" class="admin-btn admin-btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Reports.csv</a>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
+    <!-- Pending Resources for Review -->
+    <div class="admin-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <h4 style="margin: 0; color: #fff; font-size: 0.95rem;">
+                <i class="fa-solid fa-folder-open text-warning"></i> Pending Resource Approvals
+            </h4>
+            <a href="{{ url_for('admin_resources') }}" class="admin-btn admin-btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">View All ({{ stats.pending_resources }})</a>
+        </div>
+
+        {% if pending_resources %}
+            <div style="overflow-x: auto;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Resource</th>
+                            <th>Author</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in pending_resources %}
+                            <tr>
+                                <td>
+                                    <div style="font-weight: 700; color: #fff;">{{ r.title }}</div>
+                                    <div style="font-size: 0.75rem; color: #9ca3af;">{{ r.course.code if r.course else 'Gen' }} &bull; {{ r.category }}</div>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.8rem;">{{ r.author.name if r.author else 'Anonymous' }}</span>
+                                </td>
+                                <td style="text-align: right;">
+                                    <form action="{{ url_for('admin_resource_approve', resource_id=r.id) }}" method="POST" style="display: inline;">
+                                        <button type="submit" class="admin-btn admin-btn-success" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Approve</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div style="text-align: center; padding: 2rem 1rem; color: #9ca3af; font-size: 0.85rem;">
+                <i class="fa-solid fa-circle-check text-success" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;"></i>
+                All shared student resources are reviewed and approved!
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Open Reports Center -->
+    <div class="admin-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <h4 style="margin: 0; color: #fff; font-size: 0.95rem;">
+                <i class="fa-solid fa-flag text-danger"></i> Open Moderation Reports
+            </h4>
+            <a href="{{ url_for('admin_reports') }}" class="admin-btn admin-btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">View All ({{ stats.open_reports }})</a>
+        </div>
+
+        {% if open_reports %}
+            <div style="overflow-x: auto;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Issue</th>
+                            <th>Target</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rep in open_reports %}
+                            <tr>
+                                <td>
+                                    <div style="font-weight: 700; color: #ef4444;">{{ rep.category }}</div>
+                                    <div style="font-size: 0.75rem; color: #9ca3af; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ rep.reason }}</div>
+                                </td>
+                                <td>
+                                    <span class="badge-role" style="background: #374151;">{{ rep.target_type }} #{{ rep.target_id }}</span>
+                                </td>
+                                <td style="text-align: right;">
+                                    <form action="{{ url_for('admin_report_update_status', report_id=rep.id) }}" method="POST" style="display: inline;">
+                                        <input type="hidden" name="status" value="Resolved">
+                                        <input type="hidden" name="resolution_notes" value="Quick resolved via admin dashboard.">
+                                        <button type="submit" class="admin-btn admin-btn-primary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Resolve</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div style="text-align: center; padding: 2rem 1rem; color: #9ca3af; font-size: 0.85rem;">
+                <i class="fa-solid fa-shield-halved text-success" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;"></i>
+                Zero open moderation reports. Student feed is clean!
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Recent Administrative Audit Stream -->
+<div class="admin-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+        <h4 style="margin: 0; color: #fff; font-size: 0.95rem;">
+            <i class="fa-solid fa-clock-rotate-left text-primary"></i> Recent Operational Audit Trail
+        </h4>
+        <a href="{{ url_for('admin_audit_logs') }}" class="admin-btn admin-btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">View Full Log</a>
+    </div>
+
+    {% if recent_audits %}
+        <div style="overflow-x: auto;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in recent_audits %}
+                        <tr>
+                            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #9ca3af;">
+                                {{ a.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                            </td>
+                            <td>
+                                <span style="font-weight: 600; color: #fff;">{{ a.user.name if a.user else 'System' }}</span>
+                            </td>
+                            <td>
+                                <span class="badge-role" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">{{ a.action }}</span>
+                            </td>
+                            <td style="font-size: 0.8rem; color: #d1d5db;">
+                                {{ a.details or '-' }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div style="text-align: center; padding: 1.5rem; color: #9ca3af; font-size: 0.85rem;">
+            No administrative events recorded yet.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

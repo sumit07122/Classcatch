@@ -1,0 +1,100 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<div class="admin-card">
+    <div style="margin-bottom: 1.5rem;">
+        <h3 style="margin: 0; color: #fff; font-size: 1.15rem;">
+            <i class="fa-solid fa-file-import text-primary"></i> Bulk Course & Timetable CSV Import
+        </h3>
+        <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">
+            Paste tabular course schedules from Excel or Google Sheets. Preview and validate before committing to database.
+        </p>
+    </div>
+
+    <!-- Instructions Banner -->
+    <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: #bfdbfe;">
+        <strong>Expected CSV Header Format:</strong>
+        <div style="font-family: 'JetBrains Mono', monospace; background: var(--admin-card); padding: 0.5rem 0.75rem; border-radius: 4px; margin-top: 0.5rem; color: #60a5fa; font-size: 0.8rem;">
+            code,name,section,semester,instructor,room,schedule
+        </div>
+        <div style="margin-top: 0.5rem; font-size: 0.75rem; color: #9ca3af;">
+            Example: <code>CSE-301,Database Management Systems,A,5,Dr. Sharma,Room 304,Mon Wed Fri 10:00 AM</code>
+        </div>
+    </div>
+
+    <form action="{{ url_for('admin_course_import') }}" method="POST">
+        {{ form.hidden_tag() }}
+        <div style="margin-bottom: 1rem;">
+            <label style="font-weight: 600; color: #d1d5db; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">
+                Paste CSV Data:
+            </label>
+            {{ form.csv_data(class="form-control", style="width: 100%; background: var(--admin-card); border: 1px solid var(--admin-border); color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; padding: 0.75rem; border-radius: 8px; box-sizing: border-box;") }}
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+            <button type="submit" name="action" value="preview" class="admin-btn admin-btn-primary">
+                <i class="fa-solid fa-magnifying-glass"></i> Preview & Validate CSV
+            </button>
+            {% if parsed_courses and not errors %}
+                <button type="submit" name="action" value="commit" class="admin-btn admin-btn-success" onclick="return confirm('Commit {{ parsed_courses|length }} courses to database?');">
+                    <i class="fa-solid fa-check-double"></i> Confirm & Import {{ parsed_courses|length }} Courses
+                </button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Errors if any -->
+{% if errors %}
+    <div class="admin-card" style="border-color: #dc2626; background: rgba(220, 38, 38, 0.05);">
+        <h4 style="margin: 0 0 0.5rem; color: #ef4444; font-size: 0.95rem;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Validation Issues Found ({{ errors|length }})
+        </h4>
+        <ul style="margin: 0; padding-left: 1.25rem; color: #fca5a5; font-size: 0.85rem;">
+            {% for err in errors %}
+                <li>{{ err }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
+
+<!-- Preview Table -->
+{% if parsed_courses %}
+    <div class="admin-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <h4 style="margin: 0; color: #fff; font-size: 0.95rem;">
+                <i class="fa-solid fa-table-list text-success"></i> Parsed Courses Preview ({{ parsed_courses|length }} items ready)
+            </h4>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Course Title</th>
+                        <th>Sec</th>
+                        <th>Sem</th>
+                        <th>Professor</th>
+                        <th>Venue</th>
+                        <th>Schedule</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in parsed_courses %}
+                        <tr>
+                            <td style="font-weight: 700; color: #60a5fa; font-family: 'JetBrains Mono', monospace;">{{ p.code }}</td>
+                            <td style="color: #fff; font-weight: 600;">{{ p.name }}</td>
+                            <td><span class="badge-role" style="background: #374151;">{{ p.section }}</span></td>
+                            <td>{{ p.semester }}</td>
+                            <td>{{ p.instructor }}</td>
+                            <td>{{ p.room }}</td>
+                            <td style="font-size: 0.8rem; color: #9ca3af;">{{ p.schedule }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

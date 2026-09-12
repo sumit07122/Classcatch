@@ -1,0 +1,105 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<div class="admin-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h3 style="margin: 0; color: #fff; font-size: 1.15rem;">Student & Staff Accounts ({{ users|length }})</h3>
+            <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">Manage roles, CR designations, karma reputations, and account suspensions.</p>
+        </div>
+
+        <!-- Search & Filter Form -->
+        <form method="GET" action="{{ url_for('admin_users') }}" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <input type="text" name="q" value="{{ query }}" placeholder="Search by name or email..." class="form-control" style="background: var(--admin-card); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.85rem; border-radius: 6px; font-size: 0.85rem; min-width: 220px;">
+            <select name="role" class="form-select" style="background: var(--admin-card); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.85rem; border-radius: 6px; font-size: 0.85rem;">
+                <option value="">All Roles</option>
+                <option value="student" {% if role_filter=='student' %}selected{% endif %}>Students</option>
+                <option value="cr" {% if role_filter=='cr' %}selected{% endif %}>Class Reps (CR)</option>
+                <option value="admin" {% if role_filter=='admin' %}selected{% endif %}>Admins</option>
+                <option value="superadmin" {% if role_filter=='superadmin' %}selected{% endif %}>Super Admins</option>
+            </select>
+            <button type="submit" class="admin-btn admin-btn-primary">Filter</button>
+            {% if query or role_filter %}
+                <a href="{{ url_for('admin_users') }}" class="admin-btn admin-btn-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Academic Profile</th>
+                    <th>Karma</th>
+                    <th>Account Status</th>
+                    <th style="text-align: right;">Modify Role & Access</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                    <tr>
+                        <td>
+                            <div style="font-weight: 700; color: #fff;">{{ u.name }}</div>
+                            <div style="font-size: 0.75rem; color: #9ca3af; font-family: 'JetBrains Mono', monospace;">{{ u.email }}</div>
+                        </td>
+                        <td>
+                            <span class="badge-role {{ u.role }}">{{ u.role }}</span>
+                        </td>
+                        <td style="font-size: 0.8rem; color: #d1d5db;">
+                            {{ u.program or 'B.Tech CSE' }} &bull; Sem {{ u.semester or 5 }} (Sec {{ u.section or 'A' }})
+                            <div style="font-size: 0.7rem; color: #9ca3af;">{{ u.college or 'GLA University' }}</div>
+                        </td>
+                        <td>
+                            <span style="font-weight: 700; color: #f59e0b; font-family: 'JetBrains Mono', monospace;">
+                                <i class="fa-solid fa-star"></i> {{ u.karma }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if u.is_suspended %}
+                                <span class="badge-role" style="background: #ef4444; color: #fff;">SUSPENDED</span>
+                            {% else %}
+                                <span class="badge-role" style="background: #059669; color: #fff;">ACTIVE</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                            <div style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                                <!-- Role Change Form -->
+                                <form action="{{ url_for('admin_change_user_role', user_id=u.id) }}" method="POST" style="display: inline-flex; gap: 0.25rem;">
+                                    <select name="role" style="background: var(--admin-card); border: 1px solid var(--admin-border); color: #fff; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                                        <option value="student" {% if u.role=='student' %}selected{% endif %}>Student</option>
+                                        <option value="cr" {% if u.role=='cr' %}selected{% endif %}>CR</option>
+                                        <option value="admin" {% if u.role=='admin' %}selected{% endif %}>Admin</option>
+                                        {% if current_user.is_superadmin() %}
+                                            <option value="superadmin" {% if u.role=='superadmin' %}selected{% endif %}>SuperAdmin</option>
+                                        {% endif %}
+                                    </select>
+                                    <button type="submit" class="admin-btn admin-btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" title="Save role">
+                                        Save
+                                    </button>
+                                </form>
+
+                                <!-- Suspend/Unsuspend Toggle -->
+                                {% if u.id != current_user.id %}
+                                    <form action="{{ url_for('admin_toggle_suspend_user', user_id=u.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to {{ 'UNSUSPEND' if u.is_suspended else 'SUSPEND' }} this account?');">
+                                        {% if u.is_suspended %}
+                                            <button type="submit" class="admin-btn admin-btn-success" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                                <i class="fa-solid fa-unlock"></i> Restore
+                                            </button>
+                                        {% else %}
+                                            <button type="submit" class="admin-btn admin-btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                                <i class="fa-solid fa-ban"></i> Suspend
+                                            </button>
+                                        {% endif %}
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

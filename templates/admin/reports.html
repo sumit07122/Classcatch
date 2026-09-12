@@ -1,0 +1,132 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<div class="admin-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h3 style="margin: 0; color: #fff; font-size: 1.15rem;">
+                Student Content & Safety Reports Center ({{ reports|length }})
+            </h3>
+            <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">
+                Moderate reported messages, incorrect lecture summaries, harassment, and broken links submitted by students.
+            </p>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="{{ url_for('admin_reports', status='Open') }}" class="admin-btn {% if status_filter=='Open' %}admin-btn-danger{% else %}admin-btn-secondary{% endif %}">
+                <i class="fa-solid fa-flag"></i> Open Reports
+            </a>
+            <a href="{{ url_for('admin_reports', status='Under Review') }}" class="admin-btn {% if status_filter=='Under Review' %}admin-btn-warning{% else %}admin-btn-secondary{% endif %}">
+                <i class="fa-solid fa-eye"></i> Under Review
+            </a>
+            <a href="{{ url_for('admin_reports', status='Resolved') }}" class="admin-btn {% if status_filter=='Resolved' %}admin-btn-success{% else %}admin-btn-secondary{% endif %}">
+                <i class="fa-solid fa-check"></i> Resolved
+            </a>
+            <a href="{{ url_for('admin_reports', status='Dismissed') }}" class="admin-btn {% if status_filter=='Dismissed' %}admin-btn-secondary active{% else %}admin-btn-secondary{% endif %}">
+                Dismissed
+            </a>
+            <a href="{{ url_for('admin_reports', status='ALL') }}" class="admin-btn {% if status_filter=='ALL' %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}">
+                All
+            </a>
+        </div>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Report ID & Date</th>
+                    <th>Category & Reason</th>
+                    <th>Reported Target</th>
+                    <th>Reporter</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Resolve / Moderate</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if reports %}
+                    {% for rep in reports %}
+                        <tr>
+                            <td>
+                                <div style="font-weight: 700; color: #fff; font-family: 'JetBrains Mono', monospace;">#{{ rep.id }}</div>
+                                <div style="font-size: 0.75rem; color: #9ca3af;">{{ rep.created_at.strftime('%b %d, %H:%M') }}</div>
+                            </td>
+                            <td>
+                                <span class="badge-role" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);">
+                                    {{ rep.category }}
+                                </span>
+                                <div style="font-size: 0.8rem; color: #e5e7eb; margin-top: 0.25rem;">
+                                    {{ rep.reason }}
+                                </div>
+                                {% if rep.resolution_notes %}
+                                    <div style="font-size: 0.75rem; color: #6ee7b7; margin-top: 0.25rem;">
+                                        <em>Action Notes: {{ rep.resolution_notes }}</em>
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #60a5fa; text-transform: uppercase; font-size: 0.8rem;">
+                                    {{ rep.target_type }} #{{ rep.target_id }}
+                                </div>
+                            </td>
+                            <td>
+                                <span style="font-weight: 600; font-size: 0.85rem;">{{ rep.reporter.name if rep.reporter else 'Student' }}</span>
+                            </td>
+                            <td>
+                                {% if rep.status == 'Open' %}
+                                    <span class="badge-role" style="background: #dc2626; color: #fff;">Open</span>
+                                {% elif rep.status == 'Under Review' %}
+                                    <span class="badge-role" style="background: #d97706; color: #fff;">Reviewing</span>
+                                {% elif rep.status == 'Resolved' %}
+                                    <span class="badge-role" style="background: #059669; color: #fff;">Resolved</span>
+                                {% else %}
+                                    <span class="badge-role" style="background: #374151; color: #9ca3af;">Dismissed</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: right;">
+                                <div style="display: inline-flex; gap: 0.3rem;">
+                                    {% if rep.status != 'Resolved' %}
+                                        <form action="{{ url_for('admin_report_update_status', report_id=rep.id) }}" method="POST" style="display: inline;" onsubmit="var note = prompt('Resolution action taken:', 'Content moderated and warning issued'); if (note === null) return false; this.resolution_notes.value = note;">
+                                            <input type="hidden" name="status" value="Resolved">
+                                            <input type="hidden" name="resolution_notes" value="">
+                                            <button type="submit" class="admin-btn admin-btn-success" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                                <i class="fa-solid fa-check"></i> Resolve
+                                            </button>
+                                        </form>
+                                    {% endif %}
+
+                                    {% if rep.status == 'Open' %}
+                                        <form action="{{ url_for('admin_report_update_status', report_id=rep.id) }}" method="POST" style="display: inline;">
+                                            <input type="hidden" name="status" value="Under Review">
+                                            <input type="hidden" name="resolution_notes" value="Investigating issue">
+                                            <button type="submit" class="admin-btn admin-btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                                Review
+                                            </button>
+                                        </form>
+                                    {% endif %}
+
+                                    {% if rep.status != 'Dismissed' %}
+                                        <form action="{{ url_for('admin_report_update_status', report_id=rep.id) }}" method="POST" style="display: inline;">
+                                            <input type="hidden" name="status" value="Dismissed">
+                                            <input type="hidden" name="resolution_notes" value="No violation found">
+                                            <button type="submit" class="admin-btn admin-btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                                Dismiss
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #9ca3af; padding: 2rem;">
+                            No reports in category "{{ status_filter }}".
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

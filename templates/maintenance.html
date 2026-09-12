@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheduled Maintenance | ClassCatch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: #0b0f19;
+            color: #f9fafb;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-sizing: border-box;
+            padding: 1.5rem;
+        }
+        .m-card {
+            max-width: 520px;
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .m-icon {
+            font-size: 3.5rem;
+            color: #f59e0b;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+        }
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin: 0 0 1rem;
+            letter-spacing: -0.02em;
+        }
+        p {
+            color: #9ca3af;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin: 0 0 2rem;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #2563eb;
+            color: #fff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #1d4ed8;
+        }
+        .admin-link {
+            display: block;
+            margin-top: 1.5rem;
+            color: #6b7280;
+            font-size: 0.8rem;
+            text-decoration: none;
+        }
+        .admin-link:hover {
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="m-card">
+        <i class="fa-solid fa-screwdriver-wrench m-icon"></i>
+        <h1>ClassCatch Under Maintenance</h1>
+        <p>
+            Our campus platform engineers are rolling out performance upgrades and database indexing.
+            Your lecture notes, attendance calculations, and academic vaults are completely safe.
+        </p>
+        <div>
+            <button class="btn" onclick="window.location.reload();">
+                <i class="fa-solid fa-arrows-rotate"></i> Check System Status
+            </button>
+        </div>
+        <a href="{{ url_for('login') }}" class="admin-link">
+            Administrator Sign In &rsaquo;
+        </a>
+    </div>
+</body>
+</html>

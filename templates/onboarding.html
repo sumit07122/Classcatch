@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-md-7 col-lg-6">
+        <div class="card shadow-lg border-0" style="border-radius: 16px; overflow: hidden;">
+            <div class="p-4 text-white text-center" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);">
+                <div class="badge bg-white text-primary fw-bold text-uppercase mb-2 px-3 py-1" style="font-size: 0.75rem;">
+                    STEP 1 OF 1 &bull; 30 SECONDS
+                </div>
+                <h2 class="fw-bold mb-1">Set Up Your Academic Workspace</h2>
+                <p class="mb-0 text-white-50" style="font-size: 0.9rem;">
+                    Tell ClassCatch your university details so we can organize your catch-up notes and safe bunks.
+                </p>
+            </div>
+
+            <div class="card-body p-4 p-md-5">
+                <form action="{{ url_for('onboarding') }}" method="POST">
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">COLLEGE / UNIVERSITY</label>
+                        {{ form.college(class="form-control form-control-lg", placeholder="e.g. GLA University, Mathura") }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">BRANCH / PROGRAM</label>
+                        {{ form.program(class="form-control form-control-lg", placeholder="e.g. B.Tech Computer Science & Engineering") }}
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-muted">CURRENT SEMESTER</label>
+                            {{ form.semester(class="form-control form-control-lg") }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-muted">SECTION / BATCH</label>
+                            {{ form.section(class="form-control form-control-lg", placeholder="e.g. A, B, Sec-2") }}
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg fw-bold py-3 shadow-sm">
+                            Complete Setup & Launch ClassCatch 🚀
+                        </button>
+                        <a href="{{ url_for('onboarding_skip') }}" class="btn btn-link text-muted text-decoration-none small text-center mt-2">
+                            Skip this step for now &rsaquo;
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

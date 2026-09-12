@@ -15,7 +15,10 @@ Usage:
 
 from datetime import date, timedelta
 from app import app
-from models import db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord, Deadline, Resource
+from models import (
+    db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord,
+    Deadline, Resource, CRAssignment, Report, AuditLog, FeatureFlag, SystemSetting
+)
 
 def seed_database():
     with app.app_context():
@@ -23,9 +26,16 @@ def seed_database():
         db.drop_all()
         db.create_all()
 
-        print("[*] Creating demo student accounts...")
+        print("[*] Creating administrative and demo student accounts...")
+        # SuperAdmin & Admin
+        superadmin = User(name="Principal SuperAdmin", email="superadmin@classcatch.edu", role="superadmin", karma=1000)
+        superadmin.set_password("password123")
+
+        admin = User(name="Academic Dean Admin", email="admin@classcatch.edu", role="admin", karma=500)
+        admin.set_password("password123")
+
         # Demo Students with realistic Karma points & badges
-        alex = User(name="Alex Rivera", email="alex@classcatch.edu", role="student", karma=340)
+        alex = User(name="Alex Rivera", email="alex@classcatch.edu", role="cr", karma=340)
         alex.set_password("password123")
 
         sarah = User(name="Sarah Chen", email="sarah@classcatch.edu", role="student", karma=195)
@@ -34,7 +44,7 @@ def seed_database():
         david = User(name="David Sharma", email="david@classcatch.edu", role="student", karma=85)
         david.set_password("password123")
 
-        db.session.add_all([alex, sarah, david])
+        db.session.add_all([superadmin, admin, alex, sarah, david])
         db.session.commit()
 
         print("[*] Creating college courses...")
@@ -311,7 +321,9 @@ def seed_database():
                 category="PYQ & Solutions",
                 resource_url="https://drive.google.com/file/d/sample-dbms-pyq/view",
                 description="Complete solved papers with step-by-step SQL queries and B+ tree splitting diagrams.",
-                helpful_count=18
+                helpful_count=18,
+                status="Approved",
+                is_featured=True
             ),
             Resource(
                 course_id=os_course.id,
@@ -320,7 +332,8 @@ def seed_database():
                 category="Formula Cheat Sheet",
                 resource_url="https://drive.google.com/file/d/sample-os-cheat-sheet/view",
                 description="Quick revision 2-pager for FCFS, SJF, Round Robin, LRU, and Banker's Algorithm.",
-                helpful_count=24
+                helpful_count=24,
+                status="Approved"
             ),
             Resource(
                 course_id=dsa.id,
@@ -329,7 +342,8 @@ def seed_database():
                 category="Lab Manual & Codes",
                 resource_url="https://github.com/example/dsa-lab-solutions",
                 description="Tested implementations of AVL Trees, Red-Black Trees, Graph traversals, and Heaps.",
-                helpful_count=15
+                helpful_count=15,
+                status="Approved"
             ),
             Resource(
                 course_id=networks.id,
@@ -338,17 +352,72 @@ def seed_database():
                 category="Handwritten Notes",
                 resource_url="https://drive.google.com/file/d/sample-subnetting-guide/view",
                 description="Clear handwritten tricks to solve CIDR subnetting questions in under 30 seconds.",
-                helpful_count=31
+                helpful_count=31,
+                status="Approved"
+            ),
+            # Sample Pending Resource for Admin Moderation
+            Resource(
+                course_id=dbms.id,
+                user_id=david.id,
+                title="Database Normalization 1NF to BCNF Cheat Sheet (Pending Review)",
+                category="Formula Cheat Sheet",
+                resource_url="https://drive.google.com/file/d/sample-normalization-pending/view",
+                description="Student-uploaded cheat sheet pending CR/Admin approval.",
+                status="Pending Review"
             )
         ]
         db.session.add_all(resources)
 
+        print("[*] Seeding Class Representative (CR) assignments...")
+        cr_assignment = CRAssignment(
+            user_id=alex.id,
+            course_id=dbms.id,
+            section="A",
+            assigned_by_id=admin.id
+        )
+        db.session.add(cr_assignment)
+
+        print("[*] Seeding operational Feature Flags...")
+        flags = [
+            FeatureFlag(key="catchup_feed", name="Missed Class Catch-up Engine", description="Aggregated multi-course lecture catch-up feed", is_enabled=True),
+            FeatureFlag(key="attendance_tracker", name="Attendance & Safe Bunk Predictor", description="Safe bunk and recovery math calculator", is_enabled=True),
+            FeatureFlag(key="academic_vault", name="Academic Resource & PYQ Vault", description="Student-shared previous exam questions and notes", is_enabled=True),
+            FeatureFlag(key="campus_chat", name="Unofficial Peer & Course Chat", description="Peer discussion and requirements exchange", is_enabled=True),
+            FeatureFlag(key="anonymous_doubts", name="Anonymous Doubt Clearing Mode", description="Masks student identity for honest doubts", is_enabled=True),
+            FeatureFlag(key="ai_ocr", name="AI Whiteboard-to-Notes OCR Engine", description="Transcribes classroom board photos into notes", is_enabled=True),
+            FeatureFlag(key="morning_dispatch", name="Morning Timetable & WhatsApp Digest", description="Daily academic briefing simulation", is_enabled=True),
+            FeatureFlag(key="karma_rewards", name="Peer Contribution & Karma System", description="Rewards students for quality lecture summaries", is_enabled=True)
+        ]
+        db.session.add_all(flags)
+
+        print("[*] Seeding System Settings...")
+        settings = [
+            SystemSetting(key="attendance_threshold", value="75.0", description="Institutional minimum attendance target percentage"),
+            SystemSetting(key="maintenance_mode", value="false", description="Restricts student access for scheduled maintenance"),
+            SystemSetting(key="registration_enabled", value="true", description="Allow new student registrations"),
+            SystemSetting(key="default_semester", value="5", description="Default active academic semester")
+        ]
+        db.session.add_all(settings)
+
+        print("[*] Seeding sample student report for Moderation Center...")
+        sample_report = Report(
+            reporter_id=sarah.id,
+            target_type="chat",
+            target_id=1,
+            category="Spam",
+            reason="Repeated message asking for solved lab files without contributing.",
+            status="Open"
+        )
+        db.session.add(sample_report)
+
         db.session.commit()
-        print("[OK] Database successfully seeded with rich mock data!")
+        print("[OK] Database successfully seeded with rich mock data & administrative fixtures!")
         print("\n[INFO] Demo Logins:")
-        print("   Email: alex@classcatch.edu    Password: password123")
-        print("   Email: sarah@classcatch.edu   Password: password123")
-        print("   Email: david@classcatch.edu   Password: password123")
+        print("   SUPER ADMIN: superadmin@classcatch.edu  Password: password123")
+        print("   ADMIN:       admin@classcatch.edu       Password: password123")
+        print("   CR:          alex@classcatch.edu        Password: password123")
+        print("   STUDENT 1:   sarah@classcatch.edu       Password: password123")
+        print("   STUDENT 2:   david@classcatch.edu       Password: password123")
 
 if __name__ == '__main__':
     seed_database()

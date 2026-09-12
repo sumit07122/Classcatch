@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} | ClassCatch Admin Center</title>
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        :root {
+            --admin-sidebar-w: 260px;
+            --admin-bg: #0b0f19;
+            --admin-surface: #111827;
+            --admin-card: #1f2937;
+            --admin-border: #374151;
+            --admin-accent: #3b82f6;
+            --admin-text: #f9fafb;
+            --admin-muted: #9ca3af;
+        }
+        body.admin-body {
+            background-color: var(--admin-bg);
+            color: var(--admin-text);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            display: flex;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .admin-sidebar {
+            width: var(--admin-sidebar-w);
+            background: var(--admin-surface);
+            border-right: 1px solid var(--admin-border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        .admin-brand {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--admin-border);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: #fff;
+        }
+        .admin-brand i {
+            color: #60a5fa;
+            font-size: 1.5rem;
+        }
+        .admin-brand span {
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        .admin-brand .badge {
+            background: #ef4444;
+            color: #fff;
+            font-size: 0.65rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+            font-weight: 800;
+        }
+        .admin-nav {
+            padding: 1rem 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            flex: 1;
+        }
+        .admin-nav-section {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #6b7280;
+            padding: 0.75rem 0.75rem 0.25rem;
+        }
+        .admin-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 0.75rem;
+            color: #d1d5db;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+        }
+        .admin-nav-link i {
+            width: 18px;
+            text-align: center;
+            color: #9ca3af;
+        }
+        .admin-nav-link:hover {
+            background: var(--admin-card);
+            color: #fff;
+        }
+        .admin-nav-link:hover i {
+            color: var(--admin-accent);
+        }
+        .admin-nav-link.active {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border-left: 3px solid #3b82f6;
+        }
+        .admin-nav-link.active i {
+            color: #60a5fa;
+        }
+        .admin-nav-link .badge-counter {
+            margin-left: auto;
+            background: #ef4444;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.1rem 0.45rem;
+            border-radius: 10px;
+        }
+        .admin-main {
+            margin-left: var(--admin-sidebar-w);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: var(--admin-bg);
+        }
+        .admin-topbar {
+            height: 64px;
+            background: var(--admin-surface);
+            border-bottom: 1px solid var(--admin-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+        }
+        .admin-topbar-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .admin-content {
+            padding: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .admin-card {
+            background: var(--admin-surface);
+            border: 1px solid var(--admin-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .admin-table th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            background: var(--admin-card);
+            color: #9ca3af;
+            font-weight: 600;
+            border-bottom: 1px solid var(--admin-border);
+        }
+        .admin-table td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--admin-border);
+            color: #e5e7eb;
+        }
+        .admin-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .badge-role {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .badge-role.student { background: #374151; color: #d1d5db; }
+        .badge-role.cr { background: #1e3a8a; color: #93c5fd; }
+        .badge-role.admin { background: #065f46; color: #6ee7b7; }
+        .badge-role.superadmin { background: #701a75; color: #f472b6; }
+        .admin-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.85rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+        .admin-btn-primary { background: #2563eb; color: #fff; }
+        .admin-btn-primary:hover { background: #1d4ed8; }
+        .admin-btn-secondary { background: var(--admin-card); color: #d1d5db; border-color: var(--admin-border); }
+        .admin-btn-secondary:hover { background: #374151; color: #fff; }
+        .admin-btn-success { background: #059669; color: #fff; }
+        .admin-btn-success:hover { background: #047857; }
+        .admin-btn-danger { background: #dc2626; color: #fff; }
+        .admin-btn-danger:hover { background: #b91c1c; }
+        .admin-btn-warning { background: #d97706; color: #fff; }
+        .admin-btn-warning:hover { background: #b45309; }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-box {
+            background: var(--admin-surface);
+            border: 1px solid var(--admin-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .stat-box .val {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #fff;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .stat-box .lbl {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            font-weight: 600;
+        }
+        .stat-box .icon {
+            font-size: 1.5rem;
+            opacity: 0.7;
+        }
+        @media (max-width: 900px) {
+            .admin-sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            .admin-sidebar.open {
+                transform: translateX(0);
+            }
+            .admin-main {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body class="admin-body">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="adminSidebar">
+        <a href="{{ url_for('admin_dashboard') }}" class="admin-brand">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <span>ClassCatch</span>
+            <span class="badge">ADMIN</span>
+        </a>
+
+        <nav class="admin-nav">
+            <div class="admin-nav-section">Operations</div>
+            <a href="{{ url_for('admin_dashboard') }}" class="admin-nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+                <i class="fa-solid fa-gauge"></i> Dashboard
+            </a>
+            <a href="{{ url_for('admin_users') }}" class="admin-nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}">
+                <i class="fa-solid fa-users"></i> Users
+            </a>
+            <a href="{{ url_for('admin_courses') }}" class="admin-nav-link {% if request.endpoint == 'admin_courses' %}active{% endif %}">
+                <i class="fa-solid fa-book-open"></i> Courses & Timetable
+            </a>
+            <a href="{{ url_for('admin_course_import') }}" class="admin-nav-link {% if request.endpoint == 'admin_course_import' %}active{% endif %}">
+                <i class="fa-solid fa-file-import"></i> Bulk CSV Import
+            </a>
+            <a href="{{ url_for('admin_cr') }}" class="admin-nav-link {% if request.endpoint == 'admin_cr' %}active{% endif %}">
+                <i class="fa-solid fa-user-shield"></i> CR Management
+            </a>
+
+            <div class="admin-nav-section">Content & Moderation</div>
+            <a href="{{ url_for('admin_resources') }}" class="admin-nav-link {% if request.endpoint == 'admin_resources' %}active{% endif %}">
+                <i class="fa-solid fa-folder-open"></i> Resource Vault
+            </a>
+            <a href="{{ url_for('admin_summaries') }}" class="admin-nav-link {% if request.endpoint == 'admin_summaries' %}active{% endif %}">
+                <i class="fa-solid fa-newspaper"></i> Lecture Notes
+            </a>
+            <a href="{{ url_for('admin_announcements') }}" class="admin-nav-link {% if request.endpoint == 'admin_announcements' %}active{% endif %}">
+                <i class="fa-solid fa-bullhorn"></i> Announcements
+            </a>
+            <a href="{{ url_for('admin_deadlines') }}" class="admin-nav-link {% if request.endpoint == 'admin_deadlines' %}active{% endif %}">
+                <i class="fa-solid fa-clock"></i> Official Deadlines
+            </a>
+            <a href="{{ url_for('admin_reports') }}" class="admin-nav-link {% if request.endpoint == 'admin_reports' %}active{% endif %}">
+                <i class="fa-solid fa-flag"></i> Reports Center
+            </a>
+
+            <div class="admin-nav-section">System & Governance</div>
+            <a href="{{ url_for('admin_feature_flags') }}" class="admin-nav-link {% if request.endpoint == 'admin_feature_flags' %}active{% endif %}">
+                <i class="fa-solid fa-toggle-on"></i> Feature Controls
+            </a>
+            <a href="{{ url_for('admin_settings') }}" class="admin-nav-link {% if request.endpoint == 'admin_settings' %}active{% endif %}">
+                <i class="fa-solid fa-sliders"></i> Platform Settings
+            </a>
+            <a href="{{ url_for('admin_audit_logs') }}" class="admin-nav-link {% if request.endpoint == 'admin_audit_logs' %}active{% endif %}">
+                <i class="fa-solid fa-shield-halved"></i> Audit Logs
+            </a>
+
+            <div class="admin-nav-section">Quick Links</div>
+            <a href="{{ url_for('index') }}" class="admin-nav-link" target="_blank">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Student App
+            </a>
+            <a href="{{ url_for('logout') }}" class="admin-nav-link text-danger">
+                <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Workspace -->
+    <div class="admin-main">
+        <header class="admin-topbar">
+            <div class="admin-topbar-title">
+                <button id="adminMenuToggle" class="admin-btn admin-btn-secondary d-md-none" style="display: none;">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <span>{{ title }}</span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="text-align: right; line-height: 1.2;">
+                    <div style="font-weight: 700; font-size: 0.85rem; color: #fff;">{{ current_user.name }}</div>
+                    <span class="badge-role {{ current_user.role }}">{{ current_user.role }}</span>
+                </div>
+                <a href="{{ url_for('index') }}" class="admin-btn admin-btn-secondary" title="Return to student app">
+                    <i class="fa-solid fa-house"></i> Student View
+                </a>
+            </div>
+        </header>
+
+        <main class="admin-content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category if category != 'danger' else 'danger' }} mb-4" style="background: {% if category=='success' %}#064e3b; border-color: #059669; color: #a7f3d0{% elif category=='danger' %}#7f1d1d; border-color: #dc2626; color: #fecaca{% else %}#1e3a8a; border-color: #3b82f6; color: #bfdbfe{% endif %}; padding: 0.85rem 1.25rem; border-radius: 8px; font-weight: 600; font-size: 0.875rem;">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script>
+        // Mobile Sidebar Toggle
+        const menuToggle = document.getElementById('adminMenuToggle');
+        const sidebar = document.getElementById('adminSidebar');
+        if (menuToggle && sidebar) {
+            menuToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+            });
+        }
+    </script>
+</body>
+</html>

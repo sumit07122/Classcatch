@@ -1,0 +1,137 @@
+{% extends "admin/base_admin.html" %}
+
+{% block content %}
+<div class="admin-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h3 style="margin: 0; color: #fff; font-size: 1.15rem;">
+                Official Academic Deadlines & Exam Countdowns ({{ deadlines|length }})
+            </h3>
+            <p style="margin: 0.25rem 0 0; color: #9ca3af; font-size: 0.8rem;">
+                Push department midterms, quizzes, and university submission cutoffs directly onto student dashboards.
+            </p>
+        </div>
+    </div>
+
+    <!-- Create Official Deadline Form -->
+    <div style="background: var(--admin-card); border: 1px solid var(--admin-border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+        <h4 style="margin: 0 0 1rem; color: #fff; font-size: 0.95rem;">
+            <i class="fa-solid fa-calendar-plus text-primary"></i> Broadcast Official Academic Deadline / Exam
+        </h4>
+        <form action="{{ url_for('admin_deadline_new') }}" method="POST">
+            {{ form.hidden_tag() }}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Course *</label>
+                    <select name="course_id" required style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                        {% for c in courses %}
+                            <option value="{{ c.id }}">{{ c.code }} - {{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Deadline / Exam Title *</label>
+                    <input type="text" name="title" placeholder="e.g. Midterm Examination 1" required style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Due Date *</label>
+                    <input type="date" name="due_date" value="{{ today }}" required style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Category</label>
+                    <select name="category" style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                        <option value="Quiz / Exam">🎯 Midterm / Endterm Exam</option>
+                        <option value="Assignment">📋 Homework / Assignment</option>
+                        <option value="Lab Submission">🧪 Practical / Lab Viva</option>
+                        <option value="Project Milestone">🚀 Project Evaluation</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Urgency Priority</label>
+                    <select name="priority" style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+                        <option value="High">🔴 Critical / High</option>
+                        <option value="Medium">🟡 Medium</option>
+                        <option value="Normal" selected>🟢 Normal</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <label style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Instructions / Venue / Portal Link (Optional)</label>
+                <input type="text" name="description" placeholder="e.g. Bring scientific calculator and college ID card to Hall 2." style="width: 100%; background: var(--admin-surface); border: 1px solid var(--admin-border); color: #fff; padding: 0.45rem 0.6rem; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem;">
+            </div>
+            <button type="submit" class="admin-btn admin-btn-primary">
+                <i class="fa-solid fa-broadcast-tower"></i> Broadcast Official Deadline
+            </button>
+        </form>
+    </div>
+
+    <!-- Deadlines Table -->
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Title & Instructions</th>
+                    <th>Course & Category</th>
+                    <th>Due Date & Countdown</th>
+                    <th>Priority</th>
+                    <th>Type</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if deadlines %}
+                    {% for d in deadlines %}
+                        <tr>
+                            <td>
+                                <div style="font-weight: 700; color: #fff;">{{ d.title }}</div>
+                                <div style="font-size: 0.75rem; color: #9ca3af;">{{ d.description or 'No instructions specified' }}</div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #60a5fa;">{{ d.course.code }}</div>
+                                <div style="font-size: 0.75rem; color: #9ca3af;">{{ d.category }}</div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #fff;">{{ d.due_date.strftime('%b %d, %Y') }}</div>
+                                <div style="font-size: 0.75rem; font-weight: 700; color: {% if d.days_remaining < 0 %}#ef4444{% elif d.days_remaining <= 2 %}#f59e0b{% else %}#10b981{% endif %};">
+                                    {% if d.days_remaining < 0 %}
+                                        Overdue ({{ -d.days_remaining }} days ago)
+                                    {% elif d.days_remaining == 0 %}
+                                        Due Today!
+                                    {% else %}
+                                        {{ d.days_remaining }} days left
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge-role" style="background: {% if d.priority=='High' %}#dc2626{% elif d.priority=='Medium' %}#d97706{% else %}#059669{% endif %}; color: #fff;">
+                                    {{ d.priority }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if d.is_official %}
+                                    <span class="badge-role" style="background: #1e3a8a; color: #93c5fd;">OFFICIAL</span>
+                                {% else %}
+                                    <span class="badge-role" style="background: #374151; color: #9ca3af;">PERSONAL</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: right;">
+                                <form action="{{ url_for('admin_deadline_delete', deadline_id=d.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete deadline {{ d.title }}?');">
+                                    <button type="submit" class="admin-btn admin-btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #9ca3af; padding: 2rem;">
+                            No academic deadlines currently scheduled.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
