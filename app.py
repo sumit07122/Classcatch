@@ -160,6 +160,184 @@ def index():
 
 
 # ==========================================
+# Absence & Catch-Up Engine ("What Did I Miss?")
+# ==========================================
+
+@app.route('/catchup')
+def catchup_hub():
+    """
+    Dedicated Absence & Catch-Up Hub:
+    Answers the core question: 'I was absent / missed class, what did I miss?'
+    Aggregates summaries, assignments, announcements, and resources for any chosen date.
+    """
+    req_date_str = request.args.get('date')
+    req_preset = request.args.get('preset', '')
+
+    today_obj = date.today()
+    yesterday_obj = today_obj - timedelta(days=1)
+
+    target_date = yesterday_obj if req_preset == 'yesterday' else today_obj
+    if req_date_str:
+        try:
+            target_date = datetime.strptime(req_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = yesterday_obj
+
+    day_abbr = target_date.strftime('%a')
+    day_name = target_date.strftime('%A, %B %d, %Y')
+
+    # 1. Scheduled courses on this day
+    all_courses = Course.query.order_by(Course.code).all()
+    scheduled_courses = [c for c in all_courses if day_abbr in c.schedule]
+    if not scheduled_courses:
+        scheduled_courses = all_courses
+
+    # 2. Summaries posted for this target date
+    summaries = Summary.query.filter_by(date=target_date).order_by(Summary.created_at.desc()).all()
+    summaries_by_course = {s.course_id: s for s in summaries}
+
+    # 3. Deadlines due or assigned
+    deadlines_due = Deadline.query.filter_by(due_date=target_date).order_by(Deadline.priority.desc()).all()
+
+    # 4. Announcements posted on this date
+    announcements = Announcement.query.filter(
+        db.func.date(Announcement.created_at) == target_date
+    ).order_by(Announcement.created_at.desc()).all()
+
+    # Catch-up calculation
+    covered_count = len(summaries)
+    total_classes = len(scheduled_courses)
+    catchup_percent = round((covered_count / total_classes) * 100) if total_classes > 0 else 100
+
+    return render_template(
+        'catchup.html',
+        title=f'Catch Up on {target_date.strftime("%b %d")}',
+        target_date=target_date,
+        today=today_obj,
+        yesterday=yesterday_obj,
+        day_name=day_name,
+        scheduled_courses=scheduled_courses,
+        summaries=summaries,
+        summaries_by_course=summaries_by_course,
+        deadlines_due=deadlines_due,
+        announcements=announcements,
+        covered_count=covered_count,
+        total_classes=total_classes,
+        catchup_percent=catchup_percent
+    )
+
+
+# ==========================================
+# Global Search System ("Find Anything")
+# ==========================================
+
+@app.route('/search')
+def global_search():
+    """Global search across courses, topics, notes, deadlines, and resources."""
+    query = request.args.get('q', '').strip()
+    tab_filter = request.args.get('tab', 'all')
+
+    results = {
+        'courses': [],
+        'summaries': [],
+        'deadlines': [],
+        'resources': [],
+        'announcements': []
+    }
+
+    if query:
+        like_q = f'%{query}%'
+        results['courses'] = Course.query.filter(
+            Course.name.ilike(like_q) |
+            Course.code.ilike(like_q) |
+            Course.instructor.ilike(like_q) |
+            Course.room.ilike(like_q)
+        ).limit(10).all()
+
+        results['summaries'] = Summary.query.filter(
+            Summary.topic.ilike(like_q) |
+            Summary.content.ilike(like_q)
+        ).order_by(Summary.date.desc()).limit(15).all()
+
+        results['deadlines'] = Deadline.query.filter(
+            Deadline.title.ilike(like_q) |
+            Deadline.description.ilike(like_q) |
+            Deadline.category.ilike(like_q)
+        ).limit(10).all()
+
+        results['resources'] = Resource.query.filter(
+            Resource.title.ilike(like_q) |
+            Resource.description.ilike(like_q) |
+            Resource.category.ilike(like_q)
+        ).limit(10).all()
+
+        results['announcements'] = Announcement.query.filter(
+            Announcement.title.ilike(like_q) |
+            Announcement.content.ilike(like_q)
+        ).limit(10).all()
+
+    total_results = sum(len(v) for v in results.values())
+
+    return render_template(
+        'search.html',
+        title=f"Search: '{query}'" if query else "Search ClassCatch",
+        query=query,
+        tab_filter=tab_filter,
+        results=results,
+        total_results=total_results
+    )
+
+
+@app.route('/api/search')
+def api_search():
+    """Live JSON autocomplete API for global search bar."""
+    query = request.args.get('q', '').strip()
+    if len(query) < 2:
+        return jsonify({'results': [], 'total': 0})
+
+    like_q = f'%{query}%'
+    courses = Course.query.filter(
+        Course.name.ilike(like_q) | Course.code.ilike(like_q)
+    ).limit(4).all()
+
+    summaries = Summary.query.filter(
+        Summary.topic.ilike(like_q) | Summary.content.ilike(like_q)
+    ).order_by(Summary.date.desc()).limit(4).all()
+
+    resources = Resource.query.filter(
+        Resource.title.ilike(like_q)
+    ).limit(4).all()
+
+    items = []
+    for c in courses:
+        items.append({
+            'type': 'Course',
+            'title': f"{c.code} - {c.name}",
+            'subtitle': f"{c.instructor} · {c.room}",
+            'url': url_for('course_detail', course_id=c.id),
+            'icon': 'bi-journal-bookmark'
+        })
+    for s in summaries:
+        items.append({
+            'type': 'Note',
+            'title': s.topic or 'Lecture Note',
+            'subtitle': f"{s.course.code} · {s.date.strftime('%b %d')}",
+            'url': url_for('summary_detail', summary_id=s.id),
+            'icon': 'bi-file-earmark-text'
+        })
+    for r in resources:
+        items.append({
+            'type': 'Resource',
+            'title': r.title,
+            'subtitle': f"{r.category} · {r.course.code}",
+            'url': url_for('resources_list'),
+            'icon': 'bi-file-earmark-pdf'
+        })
+
+    return jsonify({'results': items, 'total': len(items)})
+
+
+# ==========================================
 # Course Hub (Tabs: Summaries, Chat, Announcements, Schedule)
 # ==========================================
 
@@ -514,6 +692,52 @@ def delete_attendance(record_id):
     return redirect(url_for('attendance_calculator'))
 
 
+@app.route('/attendance/<int:record_id>/log', methods=['POST'])
+@login_required
+def log_attendance_action(record_id):
+    """
+    1-tap instant attendance logger:
+    Allows student to record '+1 Attended' or '+1 Missed' in one tap without a form.
+    """
+    record = AttendanceRecord.query.get_or_404(record_id)
+    if record.user_id != current_user.id:
+        flash('Unauthorized access to attendance record.', 'danger')
+        return redirect(url_for('attendance_calculator'))
+
+    status = request.args.get('status', 'present')
+    if status == 'present':
+        record.attended_classes += 1
+        record.total_classes += 1
+        db.session.commit()
+        flash(f'✅ Present logged for {record.course.code}! Attendance is now {record.current_percentage}%.', 'success')
+    elif status == 'absent':
+        record.total_classes += 1
+        db.session.commit()
+        flash(f'⚠️ Missed class logged for {record.course.code}. Attendance is now {record.current_percentage}%.', 'warning')
+
+    return redirect(url_for('attendance_calculator'))
+
+
+@app.route('/attendance/<int:record_id>/target', methods=['POST'])
+@login_required
+def update_attendance_target(record_id):
+    """Update custom attendance threshold target (e.g. 75% -> 80%)."""
+    record = AttendanceRecord.query.get_or_404(record_id)
+    if record.user_id != current_user.id:
+        abort(403)
+
+    try:
+        new_target = float(request.form.get('target', 75.0))
+        if 50.0 <= new_target <= 100.0:
+            record.target_percentage = new_target
+            db.session.commit()
+            flash(f'Attendance target for {record.course.code} set to {new_target}%.', 'info')
+    except ValueError:
+        flash('Invalid target percentage value.', 'warning')
+
+    return redirect(url_for('attendance_calculator'))
+
+
 # ==========================================
 # Academic Deadlines & Exam Countdown Tracker
 # ==========================================
@@ -735,19 +959,31 @@ def ai_summarize_note():
 def verify_summary(summary_id):
     """
     CR / Faculty Verification Seal:
-    Allows Class Representatives or Instructors to mark lecture notes as 'Verified Accurate'.
+    Allows authorized Class Representatives or Instructors to mark lecture notes as 'Verified Accurate'.
     Awards +20 Karma to the student author.
     """
     summary = Summary.query.get_or_404(summary_id)
+
+    # Authorization check: Only CRs, Instructors, or Admins can verify
+    if getattr(current_user, 'role', 'student') not in ['cr', 'instructor', 'admin']:
+        flash('🔒 Access Denied: Only Class Representatives (CR) or Faculty can verify lecture notes.', 'danger')
+        return redirect(request.referrer or url_for('summary_detail', summary_id=summary.id))
+
+    # Anti-Farming check: Author cannot verify their own note
+    if summary.user_id == current_user.id:
+        flash('⚠️ Integrity Check: You cannot verify your own submitted notes to award yourself Karma.', 'warning')
+        return redirect(request.referrer or url_for('summary_detail', summary_id=summary.id))
+
     summary.is_verified = not summary.is_verified
     if summary.is_verified:
-        summary.verified_by = current_user.name
+        role_label = 'Class Representative' if current_user.role == 'cr' else current_user.role.title()
+        summary.verified_by = f"{current_user.name} ({role_label})"
         if summary.author:
             summary.author.karma = (summary.author.karma or 50) + 20
-        flash(f'✅ Lecture note verified by {current_user.name}! (+20 Karma awarded to author)', 'success')
+        flash(f'✅ Lecture note officially verified by {summary.verified_by}! (+20 Karma awarded to author)', 'success')
     else:
         summary.verified_by = None
-        flash('Verification removed.', 'info')
+        flash('Verification seal removed.', 'info')
 
     db.session.commit()
     return redirect(request.referrer or url_for('summary_detail', summary_id=summary.id))
@@ -789,6 +1025,48 @@ def scan_whiteboard():
         'success': True,
         'text': simulated_ocr_notes,
         'message': 'Whiteboard successfully transcribed into structured notes!'
+    })
+
+
+@app.route('/api/save-whiteboard-note', methods=['POST'])
+@login_required
+def save_whiteboard_note():
+    """
+    Directly saves an AI-transcribed whiteboard note into the database as a lecture summary.
+    """
+    data = request.get_json() or {}
+    course_id = data.get('course_id')
+    topic = data.get('topic', 'Classroom Whiteboard Notes')
+    content = data.get('content', '')
+    date_str = data.get('date')
+
+    if not course_id or not content:
+        return jsonify({'success': False, 'message': 'Course and content are required.'}), 400
+
+    note_date = date.today()
+    if date_str:
+        try:
+            note_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+
+    summary = Summary(
+        course_id=int(course_id),
+        user_id=current_user.id,
+        date=note_date,
+        topic=topic,
+        category='Lecture Notes',
+        content=content
+    )
+    db.session.add(summary)
+    current_user.karma = (current_user.karma or 50) + 15
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'summary_id': summary.id,
+        'redirect_url': url_for('summary_detail', summary_id=summary.id),
+        'message': 'Whiteboard note successfully saved to course feed! (+15 Karma)'
     })
 
 

@@ -48,6 +48,11 @@
                             <i class="bi bi-house-door me-1"></i> Dashboard
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'catchup_hub' %}active{% endif %} text-warning-emphasis fw-semibold" href="{{ url_for('catchup_hub') }}" id="nav-catchup">
+                            <i class="bi bi-calendar-check me-1 text-warning"></i> What Did I Miss?
+                        </a>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" id="nav-courses">
                             <i class="bi bi-journal-bookmark me-1"></i> Courses
@@ -75,16 +80,27 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'lounge' %}active{% endif %}" href="{{ url_for('lounge') }}" id="nav-lounge">
-                            <i class="bi bi-chat-dots me-1"></i> Campus Lounge
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'attendance_calculator' %}active{% endif %}" href="{{ url_for('attendance_calculator') }}" id="nav-attendance">
                             <i class="bi bi-calculator me-1"></i> Attendance & Bunks
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'lounge' %}active{% endif %}" href="{{ url_for('lounge') }}" id="nav-lounge">
+                            <i class="bi bi-chat-dots me-1"></i> Lounge
+                        </a>
+                    </li>
                 </ul>
+
+                <!-- Global Search Box -->
+                <form action="{{ url_for('global_search') }}" method="GET" class="d-none d-md-flex align-items-center me-2">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light border-end-0 text-muted rounded-start-pill ps-3">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" name="q" id="globalSearchInput" class="form-control bg-light border-start-0 rounded-end-pill pe-3" 
+                               placeholder="Search notes, PYQs... (/)" style="width: 170px;" autocomplete="off">
+                    </div>
+                </form>
 
                 <!-- Action & User Auth Controls -->
                 <div class="d-flex align-items-center gap-2">
@@ -96,7 +112,7 @@
 
                     {% if current_user.is_authenticated %}
                         <!-- Student Karma Badge -->
-                        <div class="d-none d-md-flex align-items-center gap-1 bg-white border rounded-pill px-3 py-1 shadow-xs" title="{{ current_user.badge.name }}">
+                        <div class="d-none d-xl-flex align-items-center gap-1 bg-white border rounded-pill px-3 py-1 shadow-xs" title="{{ current_user.badge.name }}">
                             <i class="fa-solid {{ current_user.badge.icon }} text-warning"></i>
                             <span class="fw-bold small text-dark">{{ current_user.karma }}</span>
                             <span class="text-muted" style="font-size: 0.75rem;">Karma</span>
@@ -119,9 +135,11 @@
                                     <div class="badge bg-light text-primary border mt-1"><i class="fa-solid {{ current_user.badge.icon }} me-1"></i> {{ current_user.badge.name }}</div>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('catchup_hub') }}"><i class="bi bi-calendar-check me-2"></i> What Did I Miss?</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('attendance_calculator') }}"><i class="bi bi-pie-chart me-2"></i> My Attendance</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('deadlines_list') }}"><i class="bi bi-alarm me-2"></i> My Deadlines</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('new_resource') }}"><i class="bi bi-cloud-upload me-2"></i> Share Study Material</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('create_course') }}"><i class="bi bi-journal-plus me-2"></i> Add Subject</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right me-2"></i> Log Out</a></li>
                             </ul>
@@ -134,6 +152,11 @@
             </div>
         </div>
     </nav>
+
+    <!-- Offline Status Detection Banner -->
+    <div id="offlineAlertBanner" class="alert alert-warning border-0 rounded-0 py-2 mb-0 d-none text-center small fw-semibold shadow-xs">
+        <i class="bi bi-wifi-off me-1"></i> You are currently offline. Serving cached timetable & lecture notes from device memory.
+    </div>
 
     <!-- Dynamic Flash Messages -->
     <div class="container mt-3">
@@ -165,17 +188,42 @@
         {% block content %}{% endblock %}
     </main>
 
+    <!-- Mobile Bottom Navigation Bar (Smartphones & PWA) -->
+    <nav class="mobile-bottom-nav d-lg-none" aria-label="Mobile Navigation">
+        <a href="{{ url_for('index') }}" class="mobile-nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+            <i class="bi bi-house-door"></i>
+            <span>Home</span>
+        </a>
+        <a href="{{ url_for('catchup_hub') }}" class="mobile-nav-link {% if request.endpoint == 'catchup_hub' %}active{% endif %}">
+            <i class="bi bi-calendar-check"></i>
+            <span>Catch Up</span>
+        </a>
+        <a href="{{ url_for('attendance_calculator') }}" class="mobile-nav-link {% if request.endpoint == 'attendance_calculator' %}active{% endif %}">
+            <i class="bi bi-calculator"></i>
+            <span>Bunks</span>
+        </a>
+        <a href="{{ url_for('deadlines_list') }}" class="mobile-nav-link {% if request.endpoint in ['deadlines_list', 'new_deadline'] %}active{% endif %}">
+            <i class="bi bi-alarm"></i>
+            <span>Deadlines</span>
+        </a>
+        <a href="{{ url_for('global_search') }}" class="mobile-nav-link {% if request.endpoint == 'global_search' %}active{% endif %}">
+            <i class="bi bi-search"></i>
+            <span>Search</span>
+        </a>
+    </nav>
+
     <!-- Modern Footer -->
     <footer>
         <div class="container text-center text-muted small">
-            <div class="d-flex flex-wrap justify-content-between align-items-center py-2">
+            <div class="d-flex flex-wrap justify-content-between align-items-center py-2 gap-2">
                 <div class="d-flex align-items-center gap-2">
-                    <strong class="text-dark"><i class="fa-solid fa-graduation-cap text-primary"></i> ClassCatch</strong> &copy; {{ current_year }} &middot; Peer-Powered College Network
+                    <strong class="text-dark"><i class="fa-solid fa-graduation-cap text-primary"></i> ClassCatch</strong> &copy; {{ current_year }} &middot; Catch the class. Keep the knowledge.
                 </div>
                 <div class="d-flex gap-3">
-                    <a href="{{ url_for('index') }}" class="text-decoration-none text-muted">Courses</a>
-                    <a href="{{ url_for('lounge') }}" class="text-decoration-none text-muted">Lounge</a>
-                    <a href="{{ url_for('attendance_calculator') }}" class="text-decoration-none text-muted">Attendance Calculator</a>
+                    <a href="{{ url_for('catchup_hub') }}" class="text-decoration-none text-muted">Catch Up</a>
+                    <a href="{{ url_for('attendance_calculator') }}" class="text-decoration-none text-muted">Attendance</a>
+                    <a href="{{ url_for('privacy_policy') }}" class="text-decoration-none text-muted">Privacy</a>
+                    <a href="{{ url_for('terms_of_service') }}" class="text-decoration-none text-muted">Terms</a>
                 </div>
             </div>
         </div>
@@ -195,12 +243,37 @@
             });
         }
 
+        // Offline / Online Detection Listener
+        const offlineBanner = document.getElementById('offlineAlertBanner');
+        function updateNetworkStatus() {
+            if (!navigator.onLine) {
+                offlineBanner.classList.remove('d-none');
+            } else {
+                offlineBanner.classList.add('d-none');
+            }
+        }
+        window.addEventListener('online', updateNetworkStatus);
+        window.addEventListener('offline', updateNetworkStatus);
+        updateNetworkStatus();
+
+        // Keyboard Shortcut ('/' opens search)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                const searchInput = document.getElementById('globalSearchInput');
+                if (searchInput) {
+                    searchInput.focus();
+                } else {
+                    window.location.href = "{{ url_for('global_search') }}";
+                }
+            }
+        });
+
         // PWA Install Prompt Handler
         let deferredPrompt;
         const installBtn = document.getElementById('pwaInstallBtn');
 
         window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent Chrome 67 and earlier from automatically showing the prompt
             e.preventDefault();
             deferredPrompt = e;
             if (installBtn) {

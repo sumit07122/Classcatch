@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumbs -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small text-muted mb-2">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Global Search</li>
+        </ol>
+    </nav>
+
+    <!-- Search Header & Input Bar -->
+    <div class="card card-modern p-4 mb-4 border-0 shadow-sm bg-white">
+        <form method="GET" action="{{ url_for('global_search') }}" class="mb-3">
+            <div class="input-group input-group-lg">
+                <span class="input-group-text bg-white border-end-0 text-muted">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" name="q" class="form-control border-start-0 ps-0 fs-5" 
+                       placeholder="Search subjects, topics, lecture notes, PYQs, deadlines, or professors..." 
+                       value="{{ query }}" autofocus>
+                <button class="btn btn-primary px-4 fw-bold" type="submit">Search</button>
+            </div>
+        </form>
+
+        <!-- Category Filter Tabs -->
+        <div class="d-flex flex-wrap gap-2 pt-2 border-top">
+            <a href="{{ url_for('global_search', q=query, tab='all') }}" 
+               class="btn btn-sm {% if tab_filter == 'all' %}btn-primary{% else %}btn-light border text-muted{% endif %} rounded-pill px-3">
+                All Results <span class="badge bg-secondary ms-1">{{ total_results }}</span>
+            </a>
+            <a href="{{ url_for('global_search', q=query, tab='courses') }}" 
+               class="btn btn-sm {% if tab_filter == 'courses' %}btn-primary{% else %}btn-light border text-muted{% endif %} rounded-pill px-3">
+                Courses <span class="badge bg-secondary ms-1">{{ results.courses|length }}</span>
+            </a>
+            <a href="{{ url_for('global_search', q=query, tab='notes') }}" 
+               class="btn btn-sm {% if tab_filter == 'notes' %}btn-primary{% else %}btn-light border text-muted{% endif %} rounded-pill px-3">
+                Lecture Notes <span class="badge bg-secondary ms-1">{{ results.summaries|length }}</span>
+            </a>
+            <a href="{{ url_for('global_search', q=query, tab='deadlines') }}" 
+               class="btn btn-sm {% if tab_filter == 'deadlines' %}btn-primary{% else %}btn-light border text-muted{% endif %} rounded-pill px-3">
+                Deadlines <span class="badge bg-secondary ms-1">{{ results.deadlines|length }}</span>
+            </a>
+            <a href="{{ url_for('global_search', q=query, tab='resources') }}" 
+               class="btn btn-sm {% if tab_filter == 'resources' %}btn-primary{% else %}btn-light border text-muted{% endif %} rounded-pill px-3">
+                Vault PYQs <span class="badge bg-secondary ms-1">{{ results.resources|length }}</span>
+            </a>
+        </div>
+    </div>
+
+    {% if query %}
+        {% if total_results == 0 %}
+            <div class="card card-modern p-5 text-center bg-white border-0 shadow-sm">
+                <i class="bi bi-search text-muted fs-1 mb-3"></i>
+                <h5 class="fw-bold text-dark mb-1">No matches found for "{{ query }}"</h5>
+                <p class="text-muted small mb-0">Try searching for a subject code (e.g. <code>CSE-301</code>), a concept (e.g. <code>Normalization</code>), or a professor's name.</p>
+            </div>
+        {% else %}
+            <!-- Results Container -->
+            <div class="row g-4">
+                <!-- Courses Section -->
+                {% if (tab_filter in ['all', 'courses']) and results.courses %}
+                    <div class="col-12">
+                        <h6 class="fw-bold text-muted text-uppercase small mb-3">
+                            <i class="bi bi-journal-bookmark me-1"></i> Subjects & Courses ({{ results.courses|length }})
+                        </h6>
+                        <div class="row g-3">
+                            {% for c in results.courses %}
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="card card-modern p-3 h-100 bg-white border-0 shadow-sm">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <span class="badge badge-code">{{ c.code }}</span>
+                                            <span class="badge bg-light text-muted border small">{{ c.room }}</span>
+                                        </div>
+                                        <h6 class="fw-bold text-dark mb-1">
+                                            <a href="{{ url_for('course_detail', course_id=c.id) }}" class="text-decoration-none text-dark stretched-link">
+                                                {{ c.name }}
+                                            </a>
+                                        </h6>
+                                        <div class="text-muted small">Prof. {{ c.instructor }} &middot; {{ c.schedule }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Lecture Notes Section -->
+                {% if (tab_filter in ['all', 'notes']) and results.summaries %}
+                    <div class="col-12">
+                        <h6 class="fw-bold text-muted text-uppercase small mb-3">
+                            <i class="bi bi-file-earmark-text me-1"></i> Lecture Catch-up Notes ({{ results.summaries|length }})
+                        </h6>
+                        <div class="row g-3">
+                            {% for s in results.summaries %}
+                                <div class="col-md-6">
+                                    <div class="card card-modern p-3 h-100 bg-white border-0 shadow-sm">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="badge badge-code">{{ s.course.code }}</span>
+                                            <span class="text-muted small">{{ s.date.strftime('%b %d, %Y') }}</span>
+                                        </div>
+                                        <h6 class="fw-bold text-dark mb-1">{{ s.topic or 'Class Catch-up' }}</h6>
+                                        <p class="text-muted small mb-3" style="white-space: pre-line;">{{ s.content[:160] }}...</p>
+                                        <div class="d-flex justify-content-between align-items-center small text-muted pt-2 border-top mt-auto">
+                                            <span>By <strong>{{ s.author.name if s.author else 'Peer' }}</strong></span>
+                                            <a href="{{ url_for('summary_detail', summary_id=s.id) }}" class="text-decoration-none fw-bold text-primary">
+                                                View Note &rarr;
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Deadlines Section -->
+                {% if (tab_filter in ['all', 'deadlines']) and results.deadlines %}
+                    <div class="col-12">
+                        <h6 class="fw-bold text-muted text-uppercase small mb-3">
+                            <i class="bi bi-alarm me-1"></i> Academic Deadlines ({{ results.deadlines|length }})
+                        </h6>
+                        <div class="row g-3">
+                            {% for d in results.deadlines %}
+                                <div class="col-md-6">
+                                    <div class="card card-modern p-3 h-100 bg-white border-0 shadow-sm d-flex justify-content-between">
+                                        <div>
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <span class="badge badge-code">{{ d.course.code }}</span>
+                                                <span class="badge bg-danger-subtle text-danger small">Due: {{ d.due_date.strftime('%b %d') }}</span>
+                                            </div>
+                                            <h6 class="fw-bold text-dark mb-1">{{ d.title }}</h6>
+                                            <div class="text-muted small">{{ d.description or 'No extra instructions' }}</div>
+                                        </div>
+                                        <div class="pt-2 mt-2 border-top text-end">
+                                            <a href="{{ url_for('deadlines_list') }}" class="small fw-bold text-primary text-decoration-none">
+                                                Go to Deadlines Tracker &rarr;
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Resources Section -->
+                {% if (tab_filter in ['all', 'resources']) and results.resources %}
+                    <div class="col-12">
+                        <h6 class="fw-bold text-muted text-uppercase small mb-3">
+                            <i class="bi bi-file-earmark-pdf me-1"></i> Academic Vault & PYQs ({{ results.resources|length }})
+                        </h6>
+                        <div class="row g-3">
+                            {% for r in results.resources %}
+                                <div class="col-md-6">
+                                    <div class="card card-modern p-3 h-100 bg-white border-0 shadow-sm d-flex justify-content-between">
+                                        <div>
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <span class="badge badge-code">{{ r.course.code }}</span>
+                                                <span class="badge bg-primary-subtle text-primary small">{{ r.category }}</span>
+                                            </div>
+                                            <h6 class="fw-bold text-dark mb-1">{{ r.title }}</h6>
+                                            <div class="text-muted small">{{ r.description or 'Study material' }}</div>
+                                        </div>
+                                        <div class="pt-2 mt-2 border-top d-flex justify-content-between align-items-center">
+                                            <span class="text-muted small"><i class="bi bi-heart-fill text-danger me-1"></i> {{ r.helpful_count }}</span>
+                                            <a href="{{ r.resource_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                                <i class="bi bi-box-arrow-up-right me-1"></i> Open Material
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% else %}
+        <!-- Search Tips & Suggestions -->
+        <div class="card card-modern p-5 text-center bg-white border-0 shadow-sm">
+            <i class="bi bi-compass text-primary fs-1 mb-3"></i>
+            <h5 class="fw-bold text-dark mb-1">Find Any Lecture, Note, or PYQ</h5>
+            <p class="text-muted small mb-4">Search across your entire semester with instant queries.</p>
+            <div class="d-flex flex-wrap justify-content-center gap-2">
+                <a href="{{ url_for('global_search', q='DBMS') }}" class="btn btn-sm btn-light border rounded-pill px-3">DBMS</a>
+                <a href="{{ url_for('global_search', q='Operating Systems') }}" class="btn btn-sm btn-light border rounded-pill px-3">Operating Systems</a>
+                <a href="{{ url_for('global_search', q='B+ Tree') }}" class="btn btn-sm btn-light border rounded-pill px-3">B+ Tree</a>
+                <a href="{{ url_for('global_search', q='PYQ') }}" class="btn btn-sm btn-light border rounded-pill px-3">PYQs</a>
+                <a href="{{ url_for('global_search', q='Assignment') }}" class="btn btn-sm btn-light border rounded-pill px-3">Assignments</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb & Header -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small text-muted mb-2">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Absence & Catch-Up Hub</li>
+        </ol>
+    </nav>
+
+    <!-- Top Catch-Up Hero Header -->
+    <div class="card card-modern p-4 p-md-4 mb-4 bg-white border-0 shadow-sm">
+        <div class="row align-items-center g-3">
+            <div class="col-lg-7">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-1 rounded-pill">
+                        <i class="bi bi-calendar-check me-1"></i> What Did I Miss?
+                    </span>
+                    <span class="badge bg-light text-muted border">{{ day_name }}</span>
+                </div>
+                <h2 class="fw-extrabold text-dark mb-1">Class Absence & Catch-Up Digest</h2>
+                <p class="text-muted small mb-0">
+                    Review all lectures, homework assignments, and professor hints recorded for this day across your semester timetable.
+                </p>
+            </div>
+
+            <!-- Date Selector & Presets -->
+            <div class="col-lg-5 text-lg-end">
+                <div class="d-flex flex-wrap align-items-center justify-content-lg-end gap-2">
+                    <a href="{{ url_for('catchup_hub', preset='yesterday') }}" 
+                       class="btn btn-sm {% if target_date == yesterday %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill px-3">
+                        <i class="bi bi-clock-history me-1"></i> Yesterday
+                    </a>
+                    <a href="{{ url_for('catchup_hub', date=today.strftime('%Y-%m-%d')) }}" 
+                       class="btn btn-sm {% if target_date == today %}btn-primary{% else %}btn-outline-secondary{% endif %} rounded-pill px-3">
+                        <i class="bi bi-calendar-day me-1"></i> Today
+                    </a>
+                    <form method="GET" action="{{ url_for('catchup_hub') }}" class="d-inline-flex align-items-center gap-1">
+                        <input type="date" name="date" class="form-control form-control-sm rounded-pill px-3" 
+                               value="{{ target_date.strftime('%Y-%m-%d') }}" onchange="this.form.submit()">
+                    </form>
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-xs" onclick="copyCatchupDigest()">
+                        <i class="bi bi-whatsapp text-success me-1"></i> Share Digest
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Catch-Up Progress Bar -->
+        <div class="mt-4 pt-3 border-top">
+            <div class="d-flex justify-content-between align-items-center mb-2 small">
+                <span class="fw-bold text-dark">
+                    <i class="bi bi-check2-circle text-success me-1"></i> Coverage for {{ target_date.strftime('%a, %b %d') }}:
+                    <strong>{{ covered_count }} of {{ total_classes }} classes documented</strong>
+                </span>
+                <span class="badge {% if catchup_percent >= 75 %}bg-success-subtle text-success{% else %}bg-warning-subtle text-warning{% endif %} fw-bold px-2 py-1">
+                    {{ catchup_percent }}% Documented
+                </span>
+            </div>
+            <div class="progress" style="height: 6px;">
+                <div class="progress-bar bg-success" role="progressbar" style="width: {{ catchup_percent }}%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Columns -->
+    <div class="row g-4">
+        <!-- Left 8 Columns: Scheduled Classes & Summaries -->
+        <div class="col-lg-8">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-journal-bookmark-fill text-primary"></i> Scheduled Lectures for {{ target_date.strftime('%A') }}
+            </h5>
+
+            {% for course in scheduled_courses %}
+                {% set summary = summaries_by_course.get(course.id) %}
+                <div class="card card-modern p-4 mb-3 border-0 shadow-sm bg-white">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge badge-code">{{ course.code }}</span>
+                            <span class="text-muted small d-none d-sm-inline">Sec {{ course.section }} &middot; {{ course.instructor }}</span>
+                        </div>
+                        <span class="badge bg-light text-muted border small">
+                            <i class="bi bi-geo-alt me-1"></i> {{ course.room }}
+                        </span>
+                    </div>
+
+                    <h5 class="fw-bold text-dark mb-2">
+                        <a href="{{ url_for('course_detail', course_id=course.id) }}" class="text-decoration-none text-dark">
+                            {{ course.name }}
+                        </a>
+                    </h5>
+
+                    {% if summary %}
+                        <!-- Detailed Note Card -->
+                        <div class="p-3 rounded-3 bg-light border mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-primary-subtle text-primary small fw-semibold">
+                                    <i class="bi bi-bookmark-fill me-1"></i> {{ summary.category }}
+                                </span>
+                                {% if summary.is_verified %}
+                                    <span class="badge bg-success-subtle text-success small fw-semibold">
+                                        <i class="bi bi-shield-check me-1"></i> CR Verified
+                                    </span>
+                                {% endif %}
+                            </div>
+
+                            {% if summary.topic %}
+                                <div class="fw-bold text-dark mb-1">{{ summary.topic }}</div>
+                            {% endif %}
+                            <p class="text-secondary small mb-2" style="white-space: pre-line;">{{ summary.content[:280] }}{% if summary.content|length > 280 %}...{% endif %}</p>
+
+                            <div class="d-flex justify-content-between align-items-center small text-muted pt-2 border-top">
+                                <span>Contributed by <strong>{{ summary.author.name if summary.author else 'Classmate' }}</strong></span>
+                                <div class="d-flex gap-2">
+                                    <a href="{{ url_for('summary_detail', summary_id=summary.id) }}" class="text-decoration-none fw-bold text-primary">
+                                        Read Full Note &rarr;
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <!-- No Note Yet Prompt -->
+                        <div class="p-3 rounded-3 bg-light border text-center py-4">
+                            <i class="bi bi-pencil-square text-muted fs-3 mb-2 d-block"></i>
+                            <div class="fw-semibold text-dark small mb-1">No student catch-up note posted yet for this class.</div>
+                            <p class="text-muted small mb-3">Were you present in this lecture? Help your classmates catch up and earn +15 Karma.</p>
+                            <a href="{{ url_for('post_summary', course_id=course.id) }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                                <i class="bi bi-plus-circle me-1"></i> Post Catch-up Note (+15 Karma)
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="card card-modern p-5 text-center bg-white border-0 shadow-sm">
+                    <i class="bi bi-calendar-x text-muted fs-1 mb-3"></i>
+                    <h5 class="fw-bold text-dark mb-1">No Scheduled Classes</h5>
+                    <p class="text-muted small mb-0">No classes were on the official timetable for {{ day_name }}. Enjoy your break!</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Right 4 Columns: Homework Deadlines & Announcements Given on this Date -->
+        <div class="col-lg-4">
+            <!-- Homework & Deadlines Card -->
+            <div class="card card-modern p-4 mb-4 border-0 shadow-sm bg-white">
+                <h6 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-alarm-fill text-danger"></i> Deadlines Due / Given
+                </h6>
+                {% if deadlines_due %}
+                    <div class="d-flex flex-column gap-2">
+                        {% for d in deadlines_due %}
+                            <div class="p-2 rounded-3 bg-light border">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="badge badge-code">{{ d.course.code }}</span>
+                                    <span class="badge bg-danger-subtle text-danger small">{{ d.priority }}</span>
+                                </div>
+                                <div class="fw-bold text-dark small">{{ d.title }}</div>
+                                {% if d.description %}
+                                    <div class="text-muted small text-truncate">{{ d.description }}</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-3 text-muted small">
+                        <i class="bi bi-check-circle text-success fs-4 d-block mb-1"></i>
+                        No critical deadlines logged for this date.
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Important Announcements Card -->
+            <div class="card card-modern p-4 mb-4 border-0 shadow-sm bg-white">
+                <h6 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-megaphone-fill text-warning"></i> Announcements & Exam Hints
+                </h6>
+                {% if announcements %}
+                    <div class="d-flex flex-column gap-2">
+                        {% for ann in announcements %}
+                            <div class="p-2 rounded-3 bg-light border">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="badge badge-code">{{ ann.course.code }}</span>
+                                    <span class="badge bg-warning-subtle text-warning small">{{ ann.tag }}</span>
+                                </div>
+                                <div class="fw-bold text-dark small">{{ ann.title }}</div>
+                                <div class="text-muted small">{{ ann.content }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-3 text-muted small">
+                        <i class="bi bi-bell-slash text-muted fs-4 d-block mb-1"></i>
+                        No announcements posted for this date.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Copy to Clipboard / WhatsApp Script -->
+<script>
+function copyCatchupDigest() {
+    let digest = "📚 *ClassCatch Absence Catch-Up Digest*\n";
+    digest += "📅 *Date:* {{ day_name }}\n\n";
+
+    {% for course in scheduled_courses %}
+        {% set summary = summaries_by_course.get(course.id) %}
+        digest += "📌 *{{ course.code }} - {{ course.name }}*\n";
+        {% if summary %}
+            digest += "   - Topic: {{ summary.topic or 'Lecture' }}\n";
+            digest += "   - Notes: {{ summary.content[:140]|replace('\n', ' ') }}...\n\n";
+        {% else %}
+            digest += "   - (No student notes logged yet)\n\n";
+        {% endif %}
+    {% endfor %}
+
+    digest += "🔗 *Catch up online on ClassCatch:* " + window.location.href;
+
+    navigator.clipboard.writeText(digest).then(() => {
+        alert("✅ Catch-Up Digest copied to clipboard! You can paste it straight into your WhatsApp class group.");
+    }).catch(err => {
+        console.error("Failed to copy:", err);
+    });
+}
+</script>
+{% endblock %}

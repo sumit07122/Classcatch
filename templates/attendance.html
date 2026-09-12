@@ -167,11 +167,23 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
-                                    <form action="{{ url_for('delete_attendance', record_id=rec.id) }}" method="POST" onsubmit="return confirm('Remove tracking for this course?');" class="d-inline">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2 border-0" title="Delete">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
+                                    <div class="d-inline-flex align-items-center gap-1">
+                                        <form action="{{ url_for('log_attendance_action', record_id=rec.id, status='present') }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-success py-1 px-2 rounded-pill shadow-xs" title="Log Present (+1 attended, +1 total)">
+                                                <i class="bi bi-plus-lg me-1"></i> Present
+                                            </button>
+                                        </form>
+                                        <form action="{{ url_for('log_attendance_action', record_id=rec.id, status='absent') }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-warning py-1 px-2 rounded-pill shadow-xs" title="Log Bunk (+0 attended, +1 total)">
+                                                <i class="bi bi-dash-lg me-1"></i> Missed
+                                            </button>
+                                        </form>
+                                        <form action="{{ url_for('delete_attendance', record_id=rec.id) }}" method="POST" onsubmit="return confirm('Remove tracking for this course?');" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2 border-0" title="Delete record">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         {% endfor %}
