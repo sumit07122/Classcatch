@@ -11,6 +11,7 @@ ENV/
 
 # SQLite Database (generated on run / seed)
 *.db-journal
+*test_cache.db
 
 # IDE / Editor
 .vscode/
