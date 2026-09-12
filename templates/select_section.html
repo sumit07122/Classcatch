@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center my-4">
+    <div class="col-lg-8 col-xl-7">
+        <div class="card card-modern p-4 p-md-5 bg-white shadow-sm border-0">
+            <!-- Header -->
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-circle mb-3 shadow-xs" style="width: 58px; height: 58px;">
+                    <i class="fa-solid fa-people-roof fs-3"></i>
+                </div>
+                <h3 class="fw-extrabold text-dark mb-1">Select Your Class Section</h3>
+                <p class="text-muted small mb-0">
+                    Welcome to ClassCatch! Select your section to instantly sync with your official timetable, lecture catch-up notes, and classmates.
+                </p>
+                {% if current_user.is_authenticated and current_user.active_section %}
+                    <div class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill mt-2">
+                        Currently enrolled in: <strong>Section {{ current_user.active_section }}</strong>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Selection Form -->
+            <form method="POST" action="{{ url_for('select_section') }}">
+                <div class="mb-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1 mb-3">
+                        <i class="fa-solid fa-layer-group text-primary me-1"></i> Available Sections (GLA CSE &middot; Sem 3)
+                    </label>
+
+                    <div class="d-flex flex-column gap-3" id="sectionOptionsList">
+                        <!-- Section 2FE Option (Pilot Default) -->
+                        <label class="section-card-option {% if current_section == '2FE' or not current_section %}recommended border-primary{% endif %} d-block">
+                            <input type="radio" name="section" value="2FE" class="section-card-radio form-check-input" {% if current_section == '2FE' or not current_section %}checked{% endif %}>
+                            <div class="d-flex align-items-start gap-3 pe-4">
+                                <div class="rounded-3 bg-primary text-white p-3 d-flex align-items-center justify-content-center" style="width: 46px; height: 46px;">
+                                    <strong class="fs-5">2FE</strong>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <h6 class="fw-bold text-dark mb-0">Section 2FE &middot; Lateral Entry Batch</h6>
+                                        <span class="badge bg-primary px-2 py-0 text-uppercase" style="font-size: 0.65rem;">Active Pilot</span>
+                                    </div>
+                                    <p class="text-muted small mb-2">B.Tech CSE &middot; Sem 3 (2026-27) &middot; Room AB-VI 306</p>
+                                    <div class="d-flex flex-wrap gap-2 small text-secondary">
+                                        <span class="badge bg-light text-muted border">10 Enrolled Courses</span>
+                                        <span class="badge bg-light text-muted border">Complete Timetable</span>
+                                        <span class="badge bg-light text-muted border">Daily Catch-up Active</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </label>
+
+                        <!-- Section 2FD Option -->
+                        <label class="section-card-option {% if current_section == '2FD' %}recommended border-primary{% endif %} d-block">
+                            <input type="radio" name="section" value="2FD" class="section-card-radio form-check-input" {% if current_section == '2FD' %}checked{% endif %}>
+                            <div class="d-flex align-items-start gap-3 pe-4">
+                                <div class="rounded-3 bg-secondary text-white p-3 d-flex align-items-center justify-content-center" style="width: 46px; height: 46px;">
+                                    <strong class="fs-5">2FD</strong>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1">Section 2FD</h6>
+                                    <p class="text-muted small mb-0">B.Tech CSE &middot; Sem 3 &middot; GLA University Mathura Campus</p>
+                                </div>
+                            </div>
+                        </label>
+
+                        <!-- Section 2FC Option -->
+                        <label class="section-card-option {% if current_section == '2FC' %}recommended border-primary{% endif %} d-block">
+                            <input type="radio" name="section" value="2FC" class="section-card-radio form-check-input" {% if current_section == '2FC' %}checked{% endif %}>
+                            <div class="d-flex align-items-start gap-3 pe-4">
+                                <div class="rounded-3 bg-secondary text-white p-3 d-flex align-items-center justify-content-center" style="width: 46px; height: 46px;">
+                                    <strong class="fs-5">2FC</strong>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1">Section 2FC</h6>
+                                    <p class="text-muted small mb-0">B.Tech CSE &middot; Sem 3 &middot; GLA University Mathura Campus</p>
+                                </div>
+                            </div>
+                        </label>
+
+                        <!-- Custom Section Option -->
+                        <label class="section-card-option d-block" id="customSectionLabel">
+                            <input type="radio" name="section" value="CUSTOM" id="radioCustomSection" class="section-card-radio form-check-input" {% if current_section and current_section not in ['2FE', '2FD', '2FC'] %}checked{% endif %}>
+                            <div class="pe-4">
+                                <h6 class="fw-bold text-dark mb-1"><i class="bi bi-pencil-square text-primary me-1"></i> Other Section / Batch</h6>
+                                <p class="text-muted small mb-2">If your section is not listed above, enter it here:</p>
+                                <input type="text" name="custom_section" id="customSectionInput" class="form-control form-control-sm rounded-3" 
+                                       placeholder="e.g. 2FB, 3FA, MCA-1..." 
+                                       value="{% if current_section and current_section not in ['2FE', '2FD', '2FC'] %}{{ current_section }}{% endif %}">
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary-gradient py-3 fs-6 fw-bold shadow-xs">
+                        <i class="fa-solid fa-circle-check me-2"></i> Confirm Section & Enter ClassCatch
+                    </button>
+                    {% if current_user.is_authenticated and current_user.active_section %}
+                        <a href="{{ url_for('index') }}" class="btn btn-light border py-2 text-muted small">
+                            Cancel & Return to Dashboard
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Highlight selected section card
+    document.querySelectorAll('input[name="section"]').forEach((radio) => {
+        radio.addEventListener('change', (e) => {
+            document.querySelectorAll('.section-card-option').forEach(el => el.classList.remove('recommended', 'border-primary'));
+            const card = e.target.closest('.section-card-option');
+            if (card) card.classList.add('recommended', 'border-primary');
+        });
+    });
+
+    const customInput = document.getElementById('customSectionInput');
+    const customRadio = document.getElementById('radioCustomSection');
+    if (customInput && customRadio) {
+        customInput.addEventListener('focus', () => {
+            customRadio.checked = true;
+            document.querySelectorAll('.section-card-option').forEach(el => el.classList.remove('recommended', 'border-primary'));
+            document.getElementById('customSectionLabel').classList.add('recommended', 'border-primary');
+        });
+    }
+</script>
+{% endblock %}

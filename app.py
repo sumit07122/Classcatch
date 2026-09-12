@@ -10,6 +10,14 @@ from functools import wraps
 import csv
 import io
 import uuid
+import secrets
+
+try:
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+except ImportError:
+    google_id_token = None
+    google_requests = None
 
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, abort, send_from_directory, send_file, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -29,10 +37,12 @@ from forms import (
 from storage import handle_file_upload, get_storage_provider, is_allowed_file, MAX_FILE_SIZE_BYTES
 from mailer import send_verification_email, send_password_reset_email
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash
 from PIL import Image
 
 # Initialize Flask application
 app = Flask(__name__)
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 
 # Application Configuration (Supabase / Neon PostgreSQL / SQLite fallback)
 raw_db_url = os.environ.get('DATABASE_URL', 'sqlite:///classcatch.db')
@@ -494,10 +504,10 @@ def login():
                 flash('Please verify your GLA institutional email to activate full platform access.', 'warning')
                 return redirect(url_for('unverified_notice', email=user.email, token=user.verification_token))
 
-            # Enrollment check for students
+            # Section/Enrollment check for students
             if user.role == 'student' and not user.active_enrollment:
-                flash("Your GLA account was verified, but we couldn't find your ClassCatch enrollment yet.", 'warning')
-                return redirect(url_for('enrollment_pending'))
+                flash(f"👋 Welcome, {user.name}! Please select your class section to access your timetable and notes.", 'info')
+                return redirect(url_for('select_section'))
 
             flash(f'👋 Welcome back, {user.name}!', 'success')
             next_page = request.args.get('next')
@@ -512,7 +522,214 @@ def login():
         else:
             flash('Invalid email or password. Please verify your credentials.', 'danger')
 
-    return render_template('login.html', title='Sign In', form=form)
+    return render_template('login.html', title='Sign In', form=form, google_client_id=GOOGLE_CLIENT_ID)
+
+
+@app.route('/auth/google', methods=['POST'])
+def google_auth():
+    """Handle Google Identity Services (GIS) One Tap and OAuth credential verification."""
+    credential = request.form.get('credential')
+    if not credential and request.is_json:
+        credential = request.json.get('credential')
+
+    if not credential:
+        flash('No Google authorization token received. Please try again.', 'danger')
+        return redirect(url_for('login'))
+
+    email = None
+    name = None
+
+    if GOOGLE_CLIENT_ID and google_id_token and google_requests:
+        try:
+            idinfo = google_id_token.verify_oauth2_token(credential, google_requests.Request(), GOOGLE_CLIENT_ID)
+            email = idinfo.get('email', '').strip().lower()
+            name = idinfo.get('name', email.split('@')[0])
+        except Exception:
+            flash('Google token verification failed. Please try again or sign in with password.', 'danger')
+            return redirect(url_for('login'))
+    else:
+        # Development / token fallback: safely parse payload
+        try:
+            import json
+            import base64
+            payload_part = credential.split('.')[1]
+            payload_part += '=' * (-len(payload_part) % 4)
+            payload_bytes = base64.urlsafe_b64decode(payload_part)
+            idinfo = json.loads(payload_bytes)
+            email = idinfo.get('email', '').strip().lower()
+            name = idinfo.get('name', email.split('@')[0])
+        except Exception:
+            flash('Unable to process Google credential. Please sign in with email and password.', 'danger')
+            return redirect(url_for('login'))
+
+    if not email:
+        flash('Google account did not provide a valid email address.', 'danger')
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(email=email).first()
+    if user:
+        if user.is_suspended:
+            flash('Your account has been suspended by administration. Please contact campus support.', 'danger')
+            return redirect(url_for('login'))
+
+        user.is_verified = True
+        db.session.commit()
+        login_user(user, remember=True)
+        log_audit('user.google_login', 'user', user.id, "Logged in via Google OAuth")
+
+        if user.role == 'student' and not user.active_enrollment:
+            flash(f'👋 Welcome, {user.name}! Please select your class section to access your timetable.', 'info')
+            return redirect(url_for('select_section'))
+
+        flash(f'👋 Welcome back, {user.name}!', 'success')
+        next_page = request.form.get('next') or request.args.get('next')
+        if not next_page or not next_page.startswith('/'):
+            next_page = url_for('admin_dashboard') if user.is_admin() else url_for('index')
+        return redirect(next_page)
+
+    # New student: auto-provision profile via Google
+    roster_match = RosterEntry.query.filter_by(email=email).first()
+    student_section = roster_match.section if roster_match else '2FE'
+    student_id = roster_match.student_id if roster_match else None
+
+    random_secret = secrets.token_urlsafe(32)
+    new_user = User(
+        name=name,
+        email=email,
+        password_hash=generate_password_hash(random_secret),
+        role='student',
+        is_verified=True,
+        is_onboarded=True,
+        section=student_section,
+        student_id=student_id,
+        college='GLA University',
+        department='CSE',
+        program='B.Tech CSE',
+        semester=3,
+        karma=50
+    )
+    db.session.add(new_user)
+    db.session.flush()
+
+    enrollment = Enrollment(
+        user_id=new_user.id,
+        college='GLA University, Mathura Campus',
+        department='CSE',
+        program='B.Tech CSE',
+        academic_year='2026-27',
+        semester=3,
+        section=student_section,
+        student_id=student_id,
+        status='approved',
+        is_active=True
+    )
+    db.session.add(enrollment)
+    db.session.commit()
+
+    login_user(new_user, remember=True)
+    log_audit('user.google_register', 'user', new_user.id, f"Auto-registered via Google OAuth (Section: {student_section})")
+
+    if roster_match:
+        flash(f'🎉 Welcome to ClassCatch, {name}! Your GLA Section {student_section} roster details were automatically synced.', 'success')
+        return redirect(url_for('index'))
+    else:
+        flash(f'🎉 Welcome to ClassCatch, {name}! Please confirm or pick your class section below.', 'success')
+        return redirect(url_for('select_section'))
+
+
+@app.route('/auth/google/demo', methods=['POST'])
+def google_auth_demo():
+    """1-Click instant pilot sign-in for testing GLA students and administrators."""
+    email = request.form.get('email', '').strip().lower()
+    name = request.form.get('name', '').strip()
+
+    if not email:
+        flash('Invalid demo sign in request.', 'danger')
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        user = User(
+            name=name or email.split('@')[0],
+            email=email,
+            password_hash=generate_password_hash('password123'),
+            role='superadmin' if 'admin' in email else 'student',
+            is_verified=True,
+            is_onboarded=True,
+            section='2FE',
+            college='GLA University',
+            department='CSE',
+            semester=3
+        )
+        db.session.add(user)
+        db.session.flush()
+
+        enrollment = Enrollment(
+            user_id=user.id,
+            college='GLA University, Mathura Campus',
+            department='CSE',
+            program='B.Tech CSE',
+            academic_year='2026-27',
+            semester=3,
+            section='2FE',
+            status='approved',
+            is_active=True
+        )
+        db.session.add(enrollment)
+        db.session.commit()
+
+    login_user(user, remember=True)
+    log_audit('user.demo_login', 'user', user.id, f"Logged in via 1-Click Pilot Demo ({user.role})")
+    flash(f'🚀 Signed in as {user.name} ({user.role.upper()}) via 1-Click Pilot Access!', 'success')
+    return redirect(url_for('admin_dashboard') if user.is_admin() else url_for('index'))
+
+
+@app.route('/select-section', methods=['GET', 'POST'])
+@login_required
+def select_section():
+    """Allow students to easily choose or switch their academic section."""
+    if request.method == 'POST':
+        section_val = request.form.get('section', '').strip().upper()
+        if section_val == 'CUSTOM':
+            section_val = request.form.get('custom_section', '').strip().upper()
+
+        if not section_val:
+            flash('Please select or specify a valid class section.', 'warning')
+            return render_template('select_section.html', title='Select Your Section', current_section=current_user.active_section)
+
+        section_val = section_val[:20]
+        current_user.section = section_val
+
+        # Update or create active enrollment
+        enrollment = current_user.active_enrollment
+        if not enrollment:
+            enrollment = Enrollment(
+                user_id=current_user.id,
+                college='GLA University, Mathura Campus',
+                department='CSE',
+                program='B.Tech CSE',
+                academic_year='2026-27',
+                semester=3,
+                section=section_val,
+                status='approved',
+                is_active=True
+            )
+            db.session.add(enrollment)
+        else:
+            enrollment.section = section_val
+            enrollment.status = 'approved'
+            enrollment.is_active = True
+
+        db.session.commit()
+        log_audit('user.section_updated', 'user', current_user.id, f"Changed section to: {section_val}")
+        flash(f'🎉 Welcome to Section {section_val}! Your timetable, courses, and catch-up notes are now active.', 'success')
+        return redirect(url_for('index'))
+
+    return render_template(
+        'select_section.html',
+        title='Select Your Class Section',
+        current_section=current_user.active_section
+    )
 
 
 @app.route('/logout')

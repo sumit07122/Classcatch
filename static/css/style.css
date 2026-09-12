@@ -27,14 +27,76 @@
     --shadow-hover: 0 15px 30px -5px rgba(79, 70, 229, 0.15);
 }
 
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    -webkit-text-size-adjust: 100%;
+}
+
 body {
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     background-color: var(--surface-bg);
     color: var(--text-main);
     min-height: 100vh;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden !important;
+    position: relative;
+    margin: 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
 }
+
+/* Universal Viewport & Content Fit Hardening */
+main.container, .container, .container-fluid {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.row {
+    max-width: 100%;
+    margin-right: 0;
+    margin-left: 0;
+}
+
+.row > * {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+img, video, canvas, svg {
+    max-width: 100%;
+    height: auto;
+}
+
+pre, code {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+p, span, h1, h2, h3, h4, h5, h6, a, div {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+.table-responsive {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
 
 /* ===================================================
    Navigation Bar
@@ -600,5 +662,143 @@ footer {
     body {
         padding-bottom: 65px;
     }
+}
+
+/* ===================================================
+   Responsive Navbar Scaling (Laptops & Desktops)
+   =================================================== */
+@media (min-width: 1200px) and (max-width: 1440px) {
+    .nav-tab-pill {
+        padding: 0.38rem 0.55rem !important;
+        font-size: 0.8rem;
+    }
+    .search-pill-wrapper {
+        width: 150px;
+    }
+    .search-pill-wrapper:focus-within {
+        width: 180px;
+    }
+    .btn-nav-action span {
+        font-size: 0.76rem;
+    }
+}
+
+@media (max-width: 1199.98px) {
+    .navbar-collapse {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1rem;
+        margin-top: 0.75rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: var(--shadow-lg);
+    }
+    .nav-tab-pill {
+        padding: 0.6rem 1rem !important;
+        width: 100%;
+    }
+    .search-pill-wrapper {
+        width: 100%;
+    }
+}
+
+/* ===================================================
+   Google Sign-In & Auth Modern Styling
+   =================================================== */
+.btn-google {
+    background: #ffffff;
+    color: #1f2937;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.92rem;
+    padding: 0.65rem 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn-google:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+    color: #111827;
+}
+
+.btn-google-demo {
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    color: #ffffff;
+    border: none;
+}
+
+.btn-google-demo:hover {
+    background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+    color: #ffffff;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 1.25rem 0;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.auth-divider:not(:empty)::before {
+    margin-right: 0.75rem;
+}
+
+.auth-divider:not(:empty)::after {
+    margin-left: 0.75rem;
+}
+
+/* ===================================================
+   Section Selection Onboarding Cards
+   =================================================== */
+.section-card-option {
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1.25rem;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: left;
+    position: relative;
+    width: 100%;
+}
+
+.section-card-option:hover {
+    border-color: #4f46e5;
+    background: #f5f7ff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.15);
+}
+
+.section-card-option.recommended {
+    border-color: #6366f1;
+    background: #faf5ff;
+}
+
+.section-card-radio {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
 }
 

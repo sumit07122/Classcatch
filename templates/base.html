@@ -25,21 +25,24 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/8074/8074800.png">
 
+    <!-- Google Identity Services (GIS) for Google One-Tap & Sign-In -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <!-- Custom Modern Styling -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
     <!-- Main Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
-        <div class="container-fluid px-lg-4">
+    <nav class="navbar navbar-expand-xl navbar-custom sticky-top">
+        <div class="container-fluid px-3 px-xl-4">
             <a class="navbar-brand d-flex align-items-center text-decoration-none" href="{{ url_for('index') }}" id="nav-brand">
                 <div class="brand-badge-icon me-2">
                     <i class="fa-solid fa-graduation-cap"></i>
                 </div>
                 <div class="d-flex align-items-center">
                     <span class="brand-title">ClassCatch</span>
-                    <span class="badge-pilot-tag">2FE</span>
+                    <span class="badge-pilot-tag">{% if current_user.is_authenticated %}{{ current_user.active_section }}{% else %}2FE{% endif %}</span>
                 </div>
             </a>
             
@@ -111,9 +114,9 @@
                 </ul>
 
                 <!-- Action & User Auth Controls -->
-                <div class="d-flex align-items-center gap-2 flex-wrap flex-lg-nowrap mt-2 mt-lg-0">
+                <div class="d-flex align-items-center gap-2 flex-wrap justify-content-xl-end mt-2 mt-xl-0">
                     <!-- Global Search Box -->
-                    <form action="{{ url_for('global_search') }}" method="GET" class="d-none d-xl-flex align-items-center me-1">
+                    <form action="{{ url_for('global_search') }}" method="GET" class="d-none d-xxl-flex align-items-center me-1">
                         <div class="search-pill-wrapper">
                             <i class="bi bi-search text-muted me-2" style="font-size: 0.8rem;"></i>
                             <input type="text" name="q" id="globalSearchInput" class="search-pill-input" placeholder="Search notes, PYQs... (/)" autocomplete="off">
@@ -166,8 +169,9 @@
                                     <li><a class="dropdown-item fw-bold text-primary" href="{{ url_for('admin_dashboard') }}"><i class="fa-solid fa-shield-halved me-2"></i> Admin Control Center</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                 {% endif %}
+                                <li><a class="dropdown-item" href="{{ url_for('select_section') }}"><i class="fa-solid fa-people-roof me-2 text-primary"></i> My Section: <strong class="badge bg-primary-subtle text-primary ms-1">{{ current_user.active_section }}</strong></a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('catchup_hub') }}"><i class="bi bi-calendar-check me-2 text-warning"></i> What Did I Miss?</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('timetable_view') }}"><i class="bi bi-calendar-week me-2 text-primary"></i> 2FE Timetable</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('timetable_view') }}"><i class="bi bi-calendar-week me-2 text-primary"></i> Timetable</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('attendance_calculator') }}"><i class="bi bi-pie-chart me-2 text-success"></i> My Attendance</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('deadlines_list') }}"><i class="bi bi-alarm me-2 text-danger"></i> Deadlines</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('new_resource') }}"><i class="bi bi-cloud-upload me-2 text-info"></i> Upload PYQ / Material</a></li>
