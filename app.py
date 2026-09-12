@@ -102,6 +102,41 @@ def internal_error(error):
 
 
 # ==========================================
+# In-Memory Rate Limiting for Abuse Prevention
+# ==========================================
+import time
+from collections import defaultdict
+
+_rate_limits = defaultdict(list)
+
+def rate_limit(max_requests=10, window_seconds=60):
+    """Simple, zero-dependency in-memory rate limiter for abuse prevention."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if app.config.get('TESTING'):
+                return f(*args, **kwargs)
+            key = f"{request.remote_addr}:{f.__name__}"
+            if current_user and current_user.is_authenticated:
+                key = f"usr_{current_user.id}:{f.__name__}"
+
+            now = time.time()
+            timestamps = [t for t in _rate_limits[key] if now - t < window_seconds]
+            _rate_limits[key] = timestamps
+
+            if len(timestamps) >= max_requests:
+                if request.is_json or request.path.startswith('/api/'):
+                    return jsonify({'success': False, 'error': 'Rate limit exceeded. Please wait a moment before retrying.'}), 429
+                flash('Too many requests. Please slow down and wait a minute before trying again.', 'warning')
+                return redirect(request.referrer or url_for('index'))
+
+            _rate_limits[key].append(now)
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+# ==========================================
 # Operational Helpers & Access Control
 # ==========================================
 
@@ -226,6 +261,7 @@ def inject_globals():
 # ==========================================
 
 @app.route('/register', methods=['GET', 'POST'])
+@rate_limit(max_requests=10, window_seconds=60)
 def register():
     """Handle new student registration restricted to official GLA institutional emails."""
     if current_user.is_authenticated:
@@ -436,6 +472,7 @@ def request_access():
 
 
 @app.route('/login', methods=['GET', 'POST'])
+@rate_limit(max_requests=15, window_seconds=60)
 def login():
     """Handle student and administrator login with institutional safeguards."""
     if current_user.is_authenticated:
@@ -488,6 +525,7 @@ def logout():
 
 
 @app.route('/forgot-password', methods=['GET', 'POST'])
+@rate_limit(max_requests=5, window_seconds=60)
 def forgot_password():
     """Request a password reset link for GLA institutional email accounts."""
     if current_user.is_authenticated:
@@ -1426,6 +1464,7 @@ def verify_summary(summary_id):
 
 
 @app.route('/api/scan-whiteboard', methods=['POST'])
+@rate_limit(max_requests=10, window_seconds=60)
 def scan_whiteboard():
     """
     Multimodal AI whiteboard & handwritten notebook OCR engine.
@@ -1700,6 +1739,7 @@ def onboarding_skip():
 
 
 @app.route('/report', methods=['POST'])
+@rate_limit(max_requests=10, window_seconds=60)
 @login_required
 def submit_report():
     """Submit a moderation report against spam, incorrect notes, or inappropriate content."""
@@ -1733,6 +1773,7 @@ def submit_report():
 
 
 @app.route('/feedback', methods=['POST'])
+@rate_limit(max_requests=10, window_seconds=60)
 @login_required
 def submit_pilot_feedback():
     """Submit 2FE pilot feedback (Bug, Suggestion, Confusing UI, Missing information, Wrong academic data, Other)."""
@@ -2844,9 +2885,10 @@ def admin_archive_storage_file(file_id):
 @app.route('/admin/storage/cleanup', methods=['POST'])
 @admin_required
 def admin_storage_cleanup():
-    """Scan local storage directory and clean up orphan files."""
+    """Scan storage provider and safely clean up orphan files not tracked in database."""
     provider = get_storage_provider()
     cleaned = 0
+    from storage import S3StorageProvider, is_s3_configured
     if hasattr(provider, 'base_dir') and os.path.exists(provider.base_dir):
         known_paths = {f.filename for f in StorageFile.query.all()}
         for fname in os.listdir(provider.base_dir):
@@ -2858,9 +2900,21 @@ def admin_storage_cleanup():
                         cleaned += 1
                     except OSError:
                         pass
+    elif isinstance(provider, S3StorageProvider) and is_s3_configured():
+        try:
+            client = provider._get_client()
+            res = client.list_objects_v2(Bucket=provider.bucket, Prefix='vault/')
+            known_keys = {f.storage_path for f in StorageFile.query.all()}
+            for item in res.get('Contents', []):
+                key = item['Key']
+                if key not in known_keys and not key.endswith('/'):
+                    client.delete_object(Bucket=provider.bucket, Key=key)
+                    cleaned += 1
+        except Exception as e:
+            flash(f"Notice during cloud storage scan: {str(e)}", "warning")
 
     log_audit('storage.cleanup', 'storage', None, f"Cleaned {cleaned} orphan files.")
-    flash(f"Storage cleanup complete: Removed {cleaned} orphan files.", "success")
+    flash(f"Storage cleanup complete: Audited and removed {cleaned} untracked orphan objects.", "success")
     return redirect(url_for('admin_storage'))
 
 
