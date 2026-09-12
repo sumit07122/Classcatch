@@ -171,11 +171,31 @@
                                 </button>
                             </form>
 
-                            <!-- CR Verification Button -->
-                            {% if current_user.is_authenticated %}
+                            <!-- Status Badges for Students -->
+                            {% if s.is_verified %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 small" title="Verified by Class Representative / Faculty">
+                                    <i class="bi bi-patch-check-fill me-1"></i> CR Verified
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2 py-1 small" title="Pending review by Class Representative">
+                                    <i class="bi bi-clock-history me-1"></i> Pending CR Review
+                                </span>
+                            {% endif %}
+
+                            <!-- CR Verification Button (ONLY FOR DESIGNATED CR OR ADMIN) -->
+                            {% if current_user.is_authenticated and (current_user.is_admin() or current_user.is_cr_for(course.id, course.section)) %}
                                 <form action="{{ url_for('verify_summary', summary_id=s.id) }}" method="POST" class="d-inline">
-                                    <button type="submit" class="btn btn-sm {% if s.is_verified %}btn-success text-white{% else %}btn-outline-primary{% endif %} rounded-pill px-2 py-1" title="Toggle CR / Faculty Verification (+20 Karma)">
-                                        <i class="bi bi-patch-check me-1"></i> {% if s.is_verified %}Verified{% else %}Verify (CR){% endif %}
+                                    <button type="submit" class="btn btn-sm {% if s.is_verified %}btn-outline-secondary{% else %}btn-success text-white{% endif %} rounded-pill px-2 py-1" title="Approve / Toggle CR Verification">
+                                        <i class="bi bi-patch-check me-1"></i> {% if s.is_verified %}Revoke Verification{% else %}Approve Note (CR){% endif %}
+                                    </button>
+                                </form>
+                            {% endif %}
+
+                            <!-- Delete Post Option (Author, CR, or Admin) -->
+                            {% if current_user.is_authenticated and (current_user.id == s.user_id or current_user.is_admin() or current_user.is_cr_for(course.id, course.section)) %}
+                                <form action="{{ url_for('delete_summary', summary_id=s.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently delete this catch-up note?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" title="Delete Note">
+                                        <i class="bi bi-trash3"></i>
                                     </button>
                                 </form>
                             {% endif %}

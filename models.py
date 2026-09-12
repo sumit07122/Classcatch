@@ -90,13 +90,20 @@ class User(UserMixin, db.Model):
             return True
         if self.role != 'cr':
             return False
-        # Check explicit CRAssignment
+        # Check explicit CRAssignment for this course
         match = CRAssignment.query.filter_by(user_id=self.id, course_id=course_id).first()
-        if not match:
-            return False
-        if section and match.section != 'ALL' and match.section != section:
-            return False
-        return True
+        if match:
+            if section and match.section not in ['ALL', '', section]:
+                return False
+            return True
+        # Check if assigned as CR for this entire section or user's active_section matches
+        if section:
+            sec_match = CRAssignment.query.filter_by(user_id=self.id, section=section).first()
+            if sec_match:
+                return True
+            if getattr(self, 'active_section', None) == section:
+                return True
+        return False
 
     def set_password(self, password):
         """Hash and set the user password."""

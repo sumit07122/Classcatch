@@ -810,8 +810,17 @@ def index():
     """
     active_sec = current_user.active_section if current_user.is_authenticated and current_user.role == 'student' else '2FE'
     courses = Course.query.filter_by(section=active_sec, is_archived=False).order_by(Course.code).all()
-    today_summaries = Summary.query.filter_by(date=date.today()).order_by(Summary.created_at.desc()).all()
-    recent_summaries = Summary.query.order_by(Summary.date.desc(), Summary.created_at.desc()).limit(6).all()
+    if current_user.is_authenticated and current_user.is_admin():
+        today_summaries = Summary.query.filter_by(date=date.today()).order_by(Summary.created_at.desc()).all()
+        recent_summaries = Summary.query.order_by(Summary.date.desc(), Summary.created_at.desc()).limit(6).all()
+    elif current_user.is_authenticated:
+        today_all = Summary.query.filter_by(date=date.today()).order_by(Summary.created_at.desc()).all()
+        today_summaries = [s for s in today_all if s.is_verified or s.user_id == current_user.id or current_user.is_cr_for(s.course_id, s.course.section)]
+        recent_all = Summary.query.order_by(Summary.date.desc(), Summary.created_at.desc()).limit(20).all()
+        recent_summaries = [s for s in recent_all if s.is_verified or s.user_id == current_user.id or current_user.is_cr_for(s.course_id, s.course.section)][:6]
+    else:
+        today_summaries = Summary.query.filter_by(date=date.today(), is_verified=True).order_by(Summary.created_at.desc()).all()
+        recent_summaries = Summary.query.filter_by(is_verified=True).order_by(Summary.date.desc(), Summary.created_at.desc()).limit(6).all()
     urgent_announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
 
     # Upcoming academic deadlines & exam countdowns
@@ -878,8 +887,14 @@ def catchup_hub():
     if not scheduled_courses:
         scheduled_courses = all_courses
 
-    # 2. Summaries posted for this target date
-    summaries = Summary.query.filter_by(date=target_date).order_by(Summary.created_at.desc()).all()
+    # 2. Summaries posted for this target date (verified notes only for general students)
+    raw_summaries = Summary.query.filter_by(date=target_date).order_by(Summary.created_at.desc()).all()
+    if current_user.is_authenticated and current_user.is_admin():
+        summaries = raw_summaries
+    elif current_user.is_authenticated:
+        summaries = [s for s in raw_summaries if s.is_verified or s.user_id == current_user.id or current_user.is_cr_for(s.course_id, s.course.section)]
+    else:
+        summaries = [s for s in raw_summaries if s.is_verified]
     summaries_by_course = {s.course_id: s for s in summaries}
 
     # 3. Deadlines due or assigned
@@ -940,10 +955,13 @@ def global_search():
             Course.room.ilike(like_q)
         ).limit(10).all()
 
-        results['summaries'] = Summary.query.filter(
-            Summary.topic.ilike(like_q) |
-            Summary.content.ilike(like_q)
-        ).order_by(Summary.date.desc()).limit(15).all()
+        summary_filter = (Summary.topic.ilike(like_q) | Summary.content.ilike(like_q))
+        if not (current_user.is_authenticated and current_user.is_admin()):
+            if current_user.is_authenticated:
+                summary_filter = summary_filter & ((Summary.is_verified == True) | (Summary.user_id == current_user.id))
+            else:
+                summary_filter = summary_filter & (Summary.is_verified == True)
+        results['summaries'] = Summary.query.filter(summary_filter).order_by(Summary.date.desc()).limit(15).all()
 
         results['deadlines'] = Deadline.query.filter(
             Deadline.title.ilike(like_q) |
@@ -986,9 +1004,13 @@ def api_search():
         Course.name.ilike(like_q) | Course.code.ilike(like_q)
     ).limit(4).all()
 
-    summaries = Summary.query.filter(
-        Summary.topic.ilike(like_q) | Summary.content.ilike(like_q)
-    ).order_by(Summary.date.desc()).limit(4).all()
+    api_summary_filter = (Summary.topic.ilike(like_q) | Summary.content.ilike(like_q))
+    if not (current_user.is_authenticated and current_user.is_admin()):
+        if current_user.is_authenticated:
+            api_summary_filter = api_summary_filter & ((Summary.is_verified == True) | (Summary.user_id == current_user.id))
+        else:
+            api_summary_filter = api_summary_filter & (Summary.is_verified == True)
+    summaries = Summary.query.filter(api_summary_filter).order_by(Summary.date.desc()).limit(4).all()
 
     resources = Resource.query.filter(
         Resource.title.ilike(like_q)
@@ -1078,6 +1100,7 @@ def course_detail(course_id):
     date_filter = request.args.get('date')
 
     # Summaries with optional date filter
+    is_cr = current_user.is_authenticated and (current_user.is_admin() or current_user.is_cr_for(course.id, course.section))
     query = Summary.query.filter_by(course_id=course.id)
     if date_filter:
         try:
@@ -1085,7 +1108,13 @@ def course_detail(course_id):
             query = query.filter_by(date=filter_date_obj)
         except ValueError:
             flash('Invalid date filter provided. Showing all dates.', 'warning')
-    summaries = query.order_by(Summary.date.desc(), Summary.created_at.desc()).all()
+    all_summaries = query.order_by(Summary.date.desc(), Summary.created_at.desc()).all()
+    if is_cr:
+        summaries = all_summaries
+    elif current_user.is_authenticated:
+        summaries = [s for s in all_summaries if s.is_verified or s.user_id == current_user.id]
+    else:
+        summaries = [s for s in all_summaries if s.is_verified]
 
     # Unofficial chat messages for this course
     chats = ChatMessage.query.filter_by(course_id=course.id).order_by(ChatMessage.created_at.asc()).all()
@@ -1113,7 +1142,8 @@ def course_detail(course_id):
         summary_form=summary_form,
         chat_form=chat_form,
         announcement_form=announcement_form,
-        date_filter=date_filter
+        date_filter=date_filter,
+        is_cr=is_cr
     )
 
 
@@ -1126,17 +1156,24 @@ def post_course_summary(course_id):
     form.course_id.choices = [(course.id, course.full_title)]
 
     if form.validate_on_submit():
+        is_cr = current_user.is_admin() or current_user.is_cr_for(course.id, course.section)
         summary = Summary(
             course_id=course.id,
             user_id=current_user.id,
             date=form.date.data,
             topic=form.topic.data.strip() if form.topic.data else None,
             category=form.category.data,
-            content=form.content.data.strip()
+            content=form.content.data.strip(),
+            is_verified=is_cr,
+            verified_by=current_user.name if is_cr else None
         )
         db.session.add(summary)
+        if is_cr:
+            current_user.karma = (current_user.karma or 50) + 20
+            flash(f'✅ Catch-up note for {course.code} published and verified as Class Representative!', 'success')
+        else:
+            flash(f'📝 Catch-up note for {course.code} submitted! It will appear on the course feed once approved by your Class Representative (CR).', 'info')
         db.session.commit()
-        flash(f'✅ Catch-up note for {course.code} on {summary.date} published!', 'success')
     else:
         for err in form.errors.values():
             flash(err[0], 'danger')
@@ -1216,20 +1253,27 @@ def post_summary():
         form.date.data = date.today()
 
     if form.validate_on_submit():
+        target_course = Course.query.get(form.course_id.data)
+        is_cr = current_user.is_admin() or (target_course and current_user.is_cr_for(target_course.id, target_course.section))
         summary = Summary(
             course_id=form.course_id.data,
             user_id=current_user.id,
             date=form.date.data,
             topic=form.topic.data.strip() if form.topic.data else None,
             category=form.category.data,
-            content=form.content.data.strip()
+            content=form.content.data.strip(),
+            is_verified=is_cr,
+            verified_by=current_user.name if is_cr else None
         )
         db.session.add(summary)
-        # Award karma to contributor (+15 Karma)
-        current_user.karma = (current_user.karma or 50) + 15
+        if is_cr:
+            current_user.karma = (current_user.karma or 50) + 20
+            flash('✅ Catch-up summary published and verified as Class Representative!', 'success')
+        else:
+            current_user.karma = (current_user.karma or 50) + 5
+            flash('📝 Catch-up summary submitted! It will appear on the feed once approved by your Class Representative (CR).', 'info')
         db.session.commit()
 
-        flash('✅ Catch-up summary submitted successfully! (+15 Karma awarded)', 'success')
         return redirect(url_for('course_detail', course_id=summary.course_id, tab='summaries'))
 
     return render_template('post_summary.html', title='Post Class Catch-up', form=form)
@@ -1239,7 +1283,13 @@ def post_summary():
 def summary_detail(summary_id):
     """Detailed standalone view of an individual catch-up note."""
     summary = Summary.query.get_or_404(summary_id)
-    return render_template('summary_detail.html', title=f"Note: {summary.course.code}", summary=summary)
+    is_cr = current_user.is_authenticated and (current_user.is_admin() or current_user.is_cr_for(summary.course_id, summary.course.section))
+    if not summary.is_verified:
+        can_view = current_user.is_authenticated and (current_user.id == summary.user_id or is_cr)
+        if not can_view:
+            flash('🔒 This note is currently pending verification by the Class Representative (CR).', 'warning')
+            return redirect(url_for('course_detail', course_id=summary.course_id))
+    return render_template('summary_detail.html', title=f"Note: {summary.course.code}", summary=summary, is_cr=is_cr)
 
 
 @app.route('/summary/<int:summary_id>/helpful', methods=['POST'])
@@ -1256,6 +1306,57 @@ def mark_helpful(summary_id):
 
     flash('Marked as helpful! (+5 Karma awarded to peer)', 'success')
     return redirect(request.referrer or url_for('summary_detail', summary_id=summary.id))
+
+
+@app.route('/summary/<int:summary_id>/verify', methods=['POST'])
+@login_required
+def verify_summary(summary_id):
+    """Allow ONLY the designated course CR or Admin to verify/approve a lecture note."""
+    summary = Summary.query.get_or_404(summary_id)
+    course = summary.course
+    is_authorized = current_user.is_admin() or current_user.is_cr_for(course.id, course.section)
+    if not is_authorized:
+        flash('Permission denied: Only the designated Class Representative (CR) or Admin can verify/approve notes for this course.', 'danger')
+        return redirect(request.referrer or url_for('course_detail', course_id=course.id))
+
+    summary.is_verified = not summary.is_verified
+    if summary.is_verified:
+        summary.verified_by = current_user.name
+        if summary.author:
+            summary.author.karma = (summary.author.karma or 50) + 20
+        log_audit('summary.approved', 'summary', summary.id, f"Approved by CR: {current_user.name}")
+        flash(f'✅ Catch-up note approved and verified by CR {current_user.name}! (+20 Karma awarded to author)', 'success')
+    else:
+        summary.verified_by = None
+        log_audit('summary.unverified', 'summary', summary.id, f"Unverified by CR: {current_user.name}")
+        flash('Note unverified and returned to pending review.', 'warning')
+
+    db.session.commit()
+    return redirect(request.referrer or url_for('course_detail', course_id=course.id, tab='summaries'))
+
+
+@app.route('/summary/<int:summary_id>/delete', methods=['POST'])
+@login_required
+def delete_summary(summary_id):
+    """Allow author, course CR, or Admin to delete a post."""
+    summary = Summary.query.get_or_404(summary_id)
+    course_id = summary.course_id
+    course = summary.course
+
+    can_delete = (
+        current_user.id == summary.user_id or
+        current_user.is_admin() or
+        current_user.is_cr_for(course.id, course.section)
+    )
+    if not can_delete:
+        flash('Permission denied: You do not have permission to delete this post.', 'danger')
+        return redirect(request.referrer or url_for('course_detail', course_id=course_id))
+
+    db.session.delete(summary)
+    db.session.commit()
+    log_audit('summary.deleted', 'summary', summary_id, f"Deleted by user: {current_user.name} ({current_user.role})")
+    flash('🗑️ Catch-up post deleted successfully.', 'success')
+    return redirect(url_for('course_detail', course_id=course_id, tab='summaries'))
 
 
 # ==========================================
@@ -1643,41 +1744,6 @@ def ai_summarize_note():
         'formatted': formatted,
         'word_count': len(formatted.split())
     })
-
-
-@app.route('/summary/<int:summary_id>/verify', methods=['POST'])
-@login_required
-def verify_summary(summary_id):
-    """
-    CR / Faculty Verification Seal:
-    Allows authorized Class Representatives or Instructors to mark lecture notes as 'Verified Accurate'.
-    Awards +20 Karma to the student author.
-    """
-    summary = Summary.query.get_or_404(summary_id)
-
-    # Authorization check: Only CRs, Instructors, or Admins can verify
-    if getattr(current_user, 'role', 'student') not in ['cr', 'instructor', 'admin']:
-        flash('🔒 Access Denied: Only Class Representatives (CR) or Faculty can verify lecture notes.', 'danger')
-        return redirect(request.referrer or url_for('summary_detail', summary_id=summary.id))
-
-    # Anti-Farming check: Author cannot verify their own note
-    if summary.user_id == current_user.id:
-        flash('⚠️ Integrity Check: You cannot verify your own submitted notes to award yourself Karma.', 'warning')
-        return redirect(request.referrer or url_for('summary_detail', summary_id=summary.id))
-
-    summary.is_verified = not summary.is_verified
-    if summary.is_verified:
-        role_label = 'Class Representative' if current_user.role == 'cr' else current_user.role.title()
-        summary.verified_by = f"{current_user.name} ({role_label})"
-        if summary.author:
-            summary.author.karma = (summary.author.karma or 50) + 20
-        flash(f'✅ Lecture note officially verified by {summary.verified_by}! (+20 Karma awarded to author)', 'success')
-    else:
-        summary.verified_by = None
-        flash('Verification seal removed.', 'info')
-
-    db.session.commit()
-    return redirect(request.referrer or url_for('summary_detail', summary_id=summary.id))
 
 
 @app.route('/api/scan-whiteboard', methods=['POST'])

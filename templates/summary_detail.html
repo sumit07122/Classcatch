@@ -14,13 +14,25 @@
         <div class="card card-modern p-4 p-md-5 bg-white shadow-sm mb-4">
             <!-- Header Meta -->
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
                     <span class="badge badge-code">{{ summary.course.code }}</span>
                     <span class="badge bg-light text-dark border">{{ summary.course.name }}</span>
                     <span class="badge bg-primary text-white">{{ summary.category }}</span>
+                    {% if summary.is_verified %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 small" title="Verified by Class Representative / Faculty">
+                            <i class="bi bi-patch-check-fill me-1"></i> CR Verified
+                        </span>
+                    {% else %}
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2 py-1 small" title="Pending review by Class Representative">
+                            <i class="bi bi-clock-history me-1"></i> Pending CR Review
+                        </span>
+                    {% endif %}
                 </div>
                 <div class="text-muted small">
                     Posted on {{ summary.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+                    {% if summary.verified_by %}
+                        &middot; <span class="text-success"><i class="bi bi-patch-check me-1"></i>Approved by {{ summary.verified_by }}</span>
+                    {% endif %}
                 </div>
             </div>
 
@@ -55,14 +67,38 @@
 
             <!-- Action Bar -->
             <div class="pt-4 border-top d-flex flex-wrap justify-content-between align-items-center gap-3">
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
                     <form action="{{ url_for('mark_helpful', summary_id=summary.id) }}" method="POST" class="d-inline">
                         <button type="submit" class="btn btn-success px-3 py-2 rounded-pill shadow-sm">
                             <i class="bi bi-hand-thumbs-up-fill me-1"></i> Found this Helpful ({{ summary.helpful_count }})
                         </button>
                     </form>
+
+                    <!-- CR Approve / Revoke (ONLY visible to designated CR or Admin) -->
+                    {% if current_user.is_authenticated and (current_user.is_admin() or current_user.is_cr_for(summary.course_id, summary.course.section)) %}
+                        <form action="{{ url_for('verify_summary', summary_id=summary.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn {% if summary.is_verified %}btn-outline-secondary{% else %}btn-primary text-white{% endif %} px-3 py-2 rounded-pill shadow-sm" title="Approve / Toggle CR Verification">
+                                <i class="bi bi-patch-check me-1"></i> {% if summary.is_verified %}Revoke Verification{% else %}Approve Note (CR){% endif %}
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    <!-- Delete Option (Author, CR, or Admin) -->
+                    {% if current_user.is_authenticated and (current_user.id == summary.user_id or current_user.is_admin() or current_user.is_cr_for(summary.course_id, summary.course.section)) %}
+                        <form action="{{ url_for('delete_summary', summary_id=summary.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently delete this catch-up note?');">
+                            <button type="submit" class="btn btn-outline-danger px-3 py-2 rounded-pill shadow-sm" title="Delete Note">
+                                <i class="bi bi-trash3 me-1"></i> Delete Note
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    <a href="https://api.whatsapp.com/send?text={{ ('📚 *ClassCatch Notes: ' ~ summary.course.code ~ ' - ' ~ (summary.topic or 'Lecture') ~ '*\n📅 Date: ' ~ summary.date ~ '\n\n' ~ summary.content[:160] ~ '...\n\n🔗 View full note: ' ~ request.host_url ~ 'summary/' ~ summary.id)|urlencode }}" 
+                       target="_blank" class="btn btn-outline-success px-3 py-2 rounded-pill shadow-sm" title="Share notes to WhatsApp class group">
+                        <i class="bi bi-whatsapp me-1"></i> WhatsApp
+                    </a>
+
                     <button class="btn btn-outline-custom px-3 py-2 rounded-pill" onclick="window.print();">
-                        <i class="bi bi-printer me-1"></i> Print / Save PDF
+                        <i class="bi bi-printer me-1"></i> Print / PDF
                     </button>
                 </div>
                 <div>

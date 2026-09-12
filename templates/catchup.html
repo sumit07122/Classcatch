@@ -108,6 +108,10 @@
                                     <span class="badge bg-success-subtle text-success small fw-semibold">
                                         <i class="bi bi-shield-check me-1"></i> CR Verified
                                     </span>
+                                {% else %}
+                                    <span class="badge bg-warning-subtle text-warning small fw-semibold">
+                                        <i class="bi bi-clock-history me-1"></i> Pending CR Review
+                                    </span>
                                 {% endif %}
                             </div>
 
@@ -116,9 +120,23 @@
                             {% endif %}
                             <p class="text-secondary small mb-2" style="white-space: pre-line;">{{ summary.content[:280] }}{% if summary.content|length > 280 %}...{% endif %}</p>
 
-                            <div class="d-flex justify-content-between align-items-center small text-muted pt-2 border-top">
+                            <div class="d-flex justify-content-between align-items-center small text-muted pt-2 border-top flex-wrap gap-2">
                                 <span>Contributed by <strong>{{ summary.author.name if summary.author else 'Classmate' }}</strong></span>
-                                <div class="d-flex gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if current_user.is_authenticated and (current_user.is_admin() or current_user.is_cr_for(course.id, course.section)) %}
+                                        <form action="{{ url_for('verify_summary', summary_id=summary.id) }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-xs {% if summary.is_verified %}btn-outline-secondary{% else %}btn-success text-white{% endif %} rounded-pill px-2 py-0" style="font-size: 0.75rem;" title="Approve / Toggle CR Verification">
+                                                <i class="bi bi-patch-check me-1"></i> {% if summary.is_verified %}Revoke{% else %}Approve (CR){% endif %}
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                    {% if current_user.is_authenticated and (current_user.id == summary.user_id or current_user.is_admin() or current_user.is_cr_for(course.id, course.section)) %}
+                                        <form action="{{ url_for('delete_summary', summary_id=summary.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently delete this catch-up note?');">
+                                            <button type="submit" class="btn btn-xs btn-outline-danger rounded-pill px-2 py-0" style="font-size: 0.75rem;" title="Delete Note">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </form>
+                                    {% endif %}
                                     <a href="{{ url_for('summary_detail', summary_id=summary.id) }}" class="text-decoration-none fw-bold text-primary">
                                         Read Full Note &rarr;
                                     </a>

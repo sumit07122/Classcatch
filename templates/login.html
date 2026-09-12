@@ -44,48 +44,6 @@
                     </svg>
                     <span>Sign in with Google / GLA Account</span>
                 </button>
-
-                <!-- 1-Click Fast Pilot Sign-In (For instant local testing) -->
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-light border text-muted w-100 rounded-3 py-1 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.78rem;">
-                        <i class="fa-solid fa-bolt text-warning me-1"></i> Quick 1-Click Pilot Login (Demo Mode)
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-modern shadow border-0 w-100 p-2">
-                        <li class="dropdown-header small text-uppercase text-muted fw-bold">Sign in as GLA Student:</li>
-                        <li>
-                            <form action="{{ url_for('google_auth_demo') }}" method="POST">
-                                <input type="hidden" name="email" value="priya.singh@gla.ac.in">
-                                <input type="hidden" name="name" value="Priya Singh">
-                                <button type="submit" class="dropdown-item py-2 d-flex justify-content-between align-items-center">
-                                    <span><strong>Priya Singh</strong> <small class="text-muted">(priya.singh@gla.ac.in)</small></span>
-                                    <span class="badge bg-primary-subtle text-primary">Student 2FE</span>
-                                </button>
-                            </form>
-                        </li>
-                        <li>
-                            <form action="{{ url_for('google_auth_demo') }}" method="POST">
-                                <input type="hidden" name="email" value="rahul.sharma@gla.ac.in">
-                                <input type="hidden" name="name" value="Rahul Sharma">
-                                <button type="submit" class="dropdown-item py-2 d-flex justify-content-between align-items-center">
-                                    <span><strong>Rahul Sharma</strong> <small class="text-muted">(rahul.sharma@gla.ac.in)</small></span>
-                                    <span class="badge bg-primary-subtle text-primary">Student 2FE</span>
-                                </button>
-                            </form>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li class="dropdown-header small text-uppercase text-muted fw-bold">Sign in as Administrator:</li>
-                        <li>
-                            <form action="{{ url_for('google_auth_demo') }}" method="POST">
-                                <input type="hidden" name="email" value="admin@classcatch.edu">
-                                <input type="hidden" name="name" value="System Administrator">
-                                <button type="submit" class="dropdown-item py-2 d-flex justify-content-between align-items-center">
-                                    <span><strong>Administrator</strong> <small class="text-muted">(admin@classcatch.edu)</small></span>
-                                    <span class="badge bg-danger-subtle text-danger">SuperAdmin</span>
-                                </button>
-                            </form>
-                        </li>
-                    </ul>
-                </div>
             </div>
 
             <div class="auth-divider">or sign in with password</div>
