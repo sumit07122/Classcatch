@@ -2,15 +2,16 @@ import os
 from datetime import date, datetime, timedelta
 from dotenv import load_dotenv
 
-# Load environment variables from .env if present
-load_dotenv(override=True)
+# Load environment variables from .env if present (skip if TESTING mode is set)
+if not os.environ.get('TESTING'):
+    load_dotenv(override=True)
 
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, abort, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord, Deadline, Resource
 from forms import (
     RegistrationForm, LoginForm, SummaryForm, ChatMessageForm,
-    AnnouncementForm, AttendanceForm, DeadlineForm, ResourceForm
+    AnnouncementForm, AttendanceForm, DeadlineForm, ResourceForm, CourseForm
 )
 
 # Initialize Flask application
@@ -161,6 +162,38 @@ def index():
 # ==========================================
 # Course Hub (Tabs: Summaries, Chat, Announcements, Schedule)
 # ==========================================
+
+@app.route('/course/new', methods=['GET', 'POST'])
+@login_required
+def create_course():
+    """Create a new course/subject for the student's branch/semester."""
+    form = CourseForm()
+    if form.validate_on_submit():
+        existing = Course.query.filter_by(code=form.code.data.strip().upper()).first()
+        if existing:
+            flash(f"A course with code '{existing.code}' ({existing.name}) already exists.", 'warning')
+            return render_template('course_new.html', title='Add Subject / Course', form=form)
+
+        new_course = Course(
+            name=form.name.data.strip(),
+            code=form.code.data.strip().upper(),
+            section=form.section.data.strip() if form.section.data else 'A',
+            semester=form.semester.data,
+            instructor=form.instructor.data.strip() if form.instructor.data else 'Prof. TBA',
+            room=form.room.data.strip() if form.room.data else 'Lecture Hall',
+            schedule=form.schedule.data.strip() if form.schedule.data else 'Mon, Wed, Fri 10:00 AM',
+            status='Scheduled'
+        )
+        db.session.add(new_course)
+        db.session.commit()
+        if hasattr(current_user, 'karma'):
+            current_user.karma += 15
+            db.session.commit()
+        flash(f"Subject '{new_course.code} - {new_course.name}' created successfully! (+15 Karma)", 'success')
+        return redirect(url_for('course_detail', course_id=new_course.id))
+
+    return render_template('course_new.html', title='Add Subject / Course', form=form)
+
 
 @app.route('/course/<int:course_id>', methods=['GET'])
 def course_detail(course_id):

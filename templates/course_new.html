@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small text-muted mb-2">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Add Subject</li>
+                </ol>
+            </nav>
+
+            <div class="card card-modern p-4 p-md-5 bg-white shadow-sm border-0">
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; font-size: 1.5rem;">
+                        <i class="bi bi-journal-plus"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold text-dark mb-1">Add Course / Subject to Timetable</h4>
+                        <p class="text-muted small mb-0">Set up real subjects for your semester so your classmates can share notes, PYQs, and timetable updates.</p>
+                    </div>
+                </div>
+
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold small text-dark">{{ form.name.label.text }}</label>
+                            {{ form.name(class="form-control form-control-lg fs-6", placeholder="e.g. Operating Systems, Data Structures, Web Technology") }}
+                            {% for error in form.name.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-dark">{{ form.code.label.text }}</label>
+                            {{ form.code(class="form-control form-control-lg fs-6", placeholder="e.g. CSE-302") }}
+                            {% for error in form.code.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-dark">{{ form.semester.label.text }}</label>
+                            {{ form.semester(class="form-control form-control-lg fs-6", placeholder="e.g. 5") }}
+                            {% for error in form.semester.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-dark">{{ form.section.label.text }}</label>
+                            {{ form.section(class="form-control form-control-lg fs-6", placeholder="e.g. A, B, Sec-2") }}
+                            {% for error in form.section.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-dark">{{ form.room.label.text }}</label>
+                            {{ form.room(class="form-control form-control-lg fs-6", placeholder="e.g. Room 304 / Lab 2") }}
+                            {% for error in form.room.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-dark">{{ form.instructor.label.text }}</label>
+                            {{ form.instructor(class="form-control form-control-lg fs-6", placeholder="e.g. Dr. Sharma / Prof. Verma") }}
+                            {% for error in form.instructor.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-dark">{{ form.schedule.label.text }}</label>
+                            {{ form.schedule(class="form-control form-control-lg fs-6", placeholder="e.g. Mon, Wed, Fri (10:00 - 11:00 AM)") }}
+                            {% for error in form.schedule.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary px-4">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4 fw-bold">
+                            <i class="bi bi-check-circle me-1"></i> Add Subject
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

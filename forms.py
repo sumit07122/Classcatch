@@ -183,3 +183,33 @@ class ResourceForm(FlaskForm):
         Optional()
     ])
     submit = SubmitField('Share Resource (+10 Karma)')
+
+
+class CourseForm(FlaskForm):
+    """Form for adding real university courses/subjects."""
+    name = StringField('Subject / Course Name', validators=[
+        DataRequired(message="Please enter the subject name."),
+        Length(max=100, message="Course name must be under 100 characters.")
+    ])
+    code = StringField('Course Code (e.g. CSE-301, BCA-204)', validators=[
+        DataRequired(message="Course code is required."),
+        Length(max=20, message="Course code must be under 20 characters.")
+    ])
+    section = StringField('Section / Batch (e.g. A, B, Section-1)', default='A', validators=[
+        Optional(), Length(max=20)
+    ])
+    semester = IntegerField('Semester', default=1, validators=[
+        DataRequired(message="Please specify the semester number."),
+        NumberRange(min=1, max=12, message="Semester must be between 1 and 12.")
+    ])
+    instructor = StringField('Professor / Instructor Name', validators=[
+        Optional(), Length(max=100)
+    ])
+    room = StringField('Room / Lecture Hall Location', validators=[
+        Optional(), Length(max=50)
+    ])
+    schedule = StringField('Weekly Timings (e.g. Mon, Wed, Fri 10:00 AM)', validators=[
+        Optional(), Length(max=100)
+    ])
+    submit = SubmitField('Add Course to Timetable')
+
