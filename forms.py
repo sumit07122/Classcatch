@@ -378,3 +378,25 @@ class AssignSectionForm(FlaskForm):
     ])
     submit = SubmitField('Confirm Section Reassignment')
 
+
+class ForgotPasswordForm(FlaskForm):
+    """Form for requesting a password reset email."""
+    email = StringField('GLA Institutional Email', validators=[
+        DataRequired(message="Email is required."),
+        Email(message="Enter a valid institutional email address.")
+    ])
+    submit = SubmitField('Send Password Reset Link')
+
+
+class ResetPasswordForm(FlaskForm):
+    """Form for setting a new password."""
+    password = PasswordField('New Password', validators=[
+        DataRequired(message="New password is required."),
+        Length(min=6, message="Password must be at least 6 characters.")
+    ])
+    confirm_password = PasswordField('Confirm New Password', validators=[
+        DataRequired(message="Please confirm your new password."),
+        EqualTo('password', message="Passwords must match.")
+    ])
+    submit = SubmitField('Update Password')
+

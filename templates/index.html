@@ -285,10 +285,13 @@
                     Loading your daily briefing...
                 </div>
             </div>
-            <div class="modal-footer border-0 pt-0">
+            <div class="modal-footer border-0 pt-0 gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-success btn-sm rounded-pill px-3" onclick="copyDispatchText()">
-                    <i class="bi bi-clipboard me-1"></i> Copy Digest
+                <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3" onclick="copyDispatchText()">
+                    <i class="bi bi-clipboard me-1"></i> Copy Text
+                </button>
+                <button type="button" class="btn btn-success btn-sm rounded-pill px-3 shadow-xs" onclick="shareDispatchOnWhatsApp()">
+                    <i class="bi bi-whatsapp me-1"></i> Send to WhatsApp
                 </button>
             </div>
         </div>
@@ -315,6 +318,16 @@ async function fetchMorningDispatch() {
         }
     } catch (err) {
         box.textContent = "Error connecting to morning dispatch service.";
+    }
+}
+
+function shareDispatchOnWhatsApp() {
+    const text = document.getElementById('dispatchContentBox').textContent;
+    if (text && !text.includes("Connecting to") && !text.includes("Error connecting")) {
+        const url = "https://api.whatsapp.com/send?text=" + encodeURIComponent(text);
+        window.open(url, '_blank');
+    } else {
+        alert("Please wait for the briefing to finish loading.");
     }
 }
 

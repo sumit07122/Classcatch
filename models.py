@@ -30,6 +30,8 @@ class User(UserMixin, db.Model):
     student_id = db.Column(db.String(50), nullable=True, index=True)
     is_verified = db.Column(db.Boolean, default=False, nullable=False)
     verification_token = db.Column(db.String(100), nullable=True)
+    reset_token = db.Column(db.String(100), nullable=True)
+    reset_token_expiry = db.Column(db.DateTime, nullable=True)
     is_suspended = db.Column(db.Boolean, default=False, nullable=False)
     is_onboarded = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

@@ -54,7 +54,7 @@ class StorageProvider(ABC):
     """Abstract base class for storage providers."""
 
     @abstractmethod
-    def save(self, file_storage, target_filename: str) -> str:
+    def save(self, file_storage, target_filename: str, mime_type: str = None) -> str:
         """Save file and return its relative/canonical storage path."""
         pass
 
@@ -78,7 +78,7 @@ class LocalStorageProvider(StorageProvider):
         self.base_dir = os.path.abspath(base_dir)
         os.makedirs(self.base_dir, exist_ok=True)
 
-    def save(self, file_storage, target_filename: str) -> str:
+    def save(self, file_storage, target_filename: str, mime_type: str = None) -> str:
         dest_path = os.path.join(self.base_dir, target_filename)
         # Ensure destination directory exists if subfolders are used
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
@@ -123,11 +123,19 @@ class S3StorageProvider(StorageProvider):
         except ImportError:
             raise RuntimeError("boto3 is required for S3StorageProvider. Please install boto3.")
 
-    def save(self, file_storage, target_filename: str) -> str:
+    def save(self, file_storage, target_filename: str, mime_type: str = None) -> str:
         client = self._get_client()
         key = f"vault/{target_filename}"
         file_storage.seek(0)
-        client.upload_fileobj(file_storage, self.bucket, key)
+        extra_args = {}
+        if mime_type:
+            extra_args['ContentType'] = mime_type
+        client.upload_fileobj(
+            file_storage,
+            self.bucket,
+            key,
+            ExtraArgs=extra_args if extra_args else None
+        )
         return key
 
     def delete(self, storage_path: str) -> bool:
@@ -138,22 +146,39 @@ class S3StorageProvider(StorageProvider):
         except Exception:
             return False
 
-    def get_path_or_url(self, storage_path: str) -> str:
+    def get_path_or_url(self, storage_path: str, as_attachment: bool = False, filename: str = None) -> str:
         client = self._get_client()
+        params = {'Bucket': self.bucket, 'Key': storage_path}
+        if filename:
+            disposition = 'attachment' if as_attachment else 'inline'
+            params['ResponseContentDisposition'] = f'{disposition}; filename="{filename}"'
         return client.generate_presigned_url(
             'get_object',
-            Params={'Bucket': self.bucket, 'Key': storage_path},
+            Params=params,
             ExpiresIn=3600
         )
 
 
+def is_s3_configured() -> bool:
+    """Check if minimum required credentials for S3/R2/Neon storage are present."""
+    access_key = os.environ.get('STORAGE_ACCESS_KEY')
+    secret_key = os.environ.get('STORAGE_SECRET_KEY')
+    bucket = os.environ.get('STORAGE_BUCKET')
+    return bool(access_key and secret_key and bucket)
+
+
 def get_storage_provider() -> StorageProvider:
-    """Factory function returning the configured storage provider."""
+    """Factory function returning the configured storage provider with automatic fallback."""
     provider_name = os.environ.get('STORAGE_PROVIDER', 'local').lower()
     if provider_name in {'s3', 'r2', 'neon'}:
-        try:
-            return S3StorageProvider()
-        except Exception:
+        if is_s3_configured():
+            try:
+                return S3StorageProvider()
+            except Exception as e:
+                import logging
+                logging.getLogger('classcatch.storage').warning(f"Failed to initialize S3 provider, falling back to local: {e}")
+                return LocalStorageProvider()
+        else:
             return LocalStorageProvider()
     return LocalStorageProvider()
 
@@ -185,12 +210,13 @@ def handle_file_upload(file_storage, uploader_id: int, course_id: int = None, se
     ext = raw_filename.rsplit('.', 1)[1].lower() if '.' in raw_filename else 'bin'
     stored_name = f"{uuid.uuid4().hex}_{raw_filename}"
 
-    provider = get_storage_provider()
-    storage_path = provider.save(file_storage, stored_name)
-
     mime_type, _ = mimetypes.guess_type(raw_filename)
     mime_type = mime_type or 'application/octet-stream'
     file_category = get_file_category(raw_filename)
+
+    provider = get_storage_provider()
+    storage_path = provider.save(file_storage, stored_name, mime_type=mime_type)
+    actual_provider = 's3' if isinstance(provider, S3StorageProvider) else 'local'
 
     storage_record = StorageFile(
         uploader_id=uploader_id,
@@ -202,7 +228,7 @@ def handle_file_upload(file_storage, uploader_id: int, course_id: int = None, se
         mime_type=mime_type,
         file_size=size,
         storage_path=storage_path,
-        storage_provider=os.environ.get('STORAGE_PROVIDER', 'local').lower(),
+        storage_provider=actual_provider,
         status='Active'
     )
 

@@ -41,9 +41,14 @@
                         <input type="date" name="date" class="form-control form-control-sm rounded-pill px-3" 
                                value="{{ target_date.strftime('%Y-%m-%d') }}" onchange="this.form.submit()">
                     </form>
-                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-xs" onclick="copyCatchupDigest()">
-                        <i class="bi bi-whatsapp text-success me-1"></i> Share Digest
-                    </button>
+                    <div class="btn-group shadow-xs">
+                        <button type="button" class="btn btn-sm btn-success rounded-pill-start px-3" onclick="shareCatchupWhatsApp()" title="Open directly in WhatsApp">
+                            <i class="bi bi-whatsapp me-1"></i> Send to WhatsApp
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill-end px-2" onclick="copyCatchupDigest()" title="Copy Markdown digest to clipboard">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -202,7 +207,7 @@
 
 <!-- Copy to Clipboard / WhatsApp Script -->
 <script>
-function copyCatchupDigest() {
+function getDigestText() {
     let digest = "📚 *ClassCatch Absence Catch-Up Digest*\n";
     digest += "📅 *Date:* {{ day_name }}\n\n";
 
@@ -218,8 +223,18 @@ function copyCatchupDigest() {
     {% endfor %}
 
     digest += "🔗 *Catch up online on ClassCatch:* " + window.location.href;
+    return digest;
+}
 
-    navigator.clipboard.writeText(digest).then(() => {
+function shareCatchupWhatsApp() {
+    const text = getDigestText();
+    const url = "https://api.whatsapp.com/send?text=" + encodeURIComponent(text);
+    window.open(url, '_blank');
+}
+
+function copyCatchupDigest() {
+    const text = getDigestText();
+    navigator.clipboard.writeText(text).then(() => {
         alert("✅ Catch-Up Digest copied to clipboard! You can paste it straight into your WhatsApp class group.");
     }).catch(err => {
         console.error("Failed to copy:", err);

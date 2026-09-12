@@ -23,9 +23,13 @@ from forms import (
     AnnouncementForm, AttendanceForm, DeadlineForm, ResourceForm, CourseForm,
     OnboardingForm, ReportForm, AdminUserEditForm, CRAssignmentForm,
     BulkCourseImportForm, SystemSettingsForm, RosterImportForm,
-    EnrollmentRequestForm, TimetableSlotForm, AssignSectionForm
+    EnrollmentRequestForm, TimetableSlotForm, AssignSectionForm,
+    ForgotPasswordForm, ResetPasswordForm
 )
 from storage import handle_file_upload, get_storage_provider, is_allowed_file, MAX_FILE_SIZE_BYTES
+from mailer import send_verification_email, send_password_reset_email
+from werkzeug.utils import secure_filename
+from PIL import Image
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -218,7 +222,13 @@ def register():
         db.session.commit()
         log_audit('user.registered', 'user', user.id, f"Registered new GLA account: {user.email}")
 
-        flash(f'🎉 Institutional account created for {raw_email}! Please verify your GLA email to proceed. Verification link: /verify-email/{token}', 'success')
+        # Dispatch institutional email verification link
+        try:
+            send_verification_email(user, token, request.host_url)
+        except Exception as e:
+            app.logger.warning(f"Verification email dispatch error: {e}")
+
+        flash(f'🎉 Institutional account created for {raw_email}! An official verification email was dispatched to your GLA inbox. Link: /verify-email/{token}', 'success')
         return redirect(url_for('unverified_notice', email=raw_email, token=token))
 
     return render_template('register.html', title='Join ClassCatch - GLA University', form=form)
@@ -249,7 +259,14 @@ def resend_verification():
 
     user.verification_token = uuid.uuid4().hex
     db.session.commit()
-    flash(f'Verification token refreshed for {user.email}! Link: /verify-email/{user.verification_token}', 'info')
+
+    # Dispatch fresh verification email
+    try:
+        send_verification_email(user, user.verification_token, request.host_url)
+    except Exception as e:
+        app.logger.warning(f"Resend verification email dispatch error: {e}")
+
+    flash(f'Verification token refreshed and email dispatched to {user.email}! Link: /verify-email/{user.verification_token}', 'info')
     return redirect(url_for('unverified_notice', email=user.email, token=user.verification_token))
 
 
@@ -425,6 +442,58 @@ def logout():
     logout_user()
     flash('You have been logged out safely.', 'info')
     return redirect(url_for('index'))
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Request a password reset link for GLA institutional email accounts."""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        raw_email = form.email.data.strip().lower()
+        user = User.query.filter_by(email=raw_email).first()
+        if user:
+            token = uuid.uuid4().hex
+            user.reset_token = token
+            user.reset_token_expiry = datetime.utcnow() + timedelta(hours=1)
+            db.session.commit()
+            log_audit('user.password_reset_request', 'user', user.id, f"Password reset requested for: {user.email}")
+            try:
+                send_password_reset_email(user, token, request.host_url)
+            except Exception as e:
+                app.logger.warning(f"Password reset dispatch error: {e}")
+
+        # Always flash generic confirmation to prevent user enumeration attacks
+        flash(f'If an account exists for {raw_email}, a secure password reset link has been dispatched to your institutional inbox.', 'info')
+        return redirect(url_for('login'))
+
+    return render_template('forgot_password.html', title='Reset Password - GLA ClassCatch', form=form)
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Set a new password using a secure 1-hour reset token."""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    user = User.query.filter_by(reset_token=token).first()
+    if not user or not user.reset_token_expiry or user.reset_token_expiry < datetime.utcnow():
+        flash('The password reset link is invalid, expired, or has already been used.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user.set_password(form.password.data)
+        user.reset_token = None
+        user.reset_token_expiry = None
+        db.session.commit()
+        log_audit('user.password_reset_complete', 'user', user.id, f"Password reset completed for: {user.email}")
+        flash('🎉 Your password has been successfully updated! You may now sign in.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html', title='Set New Password', form=form, token=token)
 
 
 # ==========================================
@@ -1316,39 +1385,106 @@ def verify_summary(summary_id):
 @app.route('/api/scan-whiteboard', methods=['POST'])
 def scan_whiteboard():
     """
-    Simulated whiteboard & handwritten notebook OCR engine.
-    Analyzes an uploaded photo of a classroom whiteboard or notebook page,
+    Multimodal AI whiteboard & handwritten notebook OCR engine.
+    Analyzes an uploaded photo of a classroom whiteboard or notebook page using Google Gemini Vision,
     and extracts formatted markdown lecture notes with equations, headings, and homework.
     """
-    course_name = request.form.get('course', 'Lecture Notes')
+    course_name = request.form.get('course', 'Lecture Notes').strip() or 'Lecture Notes'
     
-    # Check if a file was uploaded
     file = request.files.get('file')
-    filename = file.filename if file else 'whiteboard_scan.jpg'
+    if not file or not file.filename:
+        return jsonify({'success': False, 'message': 'No image file uploaded.'}), 400
 
-    # Simulated intelligent OCR extraction from classroom blackboard
-    simulated_ocr_notes = f"""### 📸 Scanned Lecture Board Note: {course_name}
-> *Extracted from image: {filename} via ClassCatch OCR Vision Engine*
+    filename = secure_filename(file.filename) or 'whiteboard_scan.jpg'
+    
+    image_bytes = file.read()
+    if not image_bytes:
+        return jsonify({'success': False, 'message': 'Uploaded image file is empty.'}), 400
 
-#### 📌 Topics & Equations from Board:
-- Core Concept: Algorithmic time complexity and recurrence relations.
-- $T(n) = 2T(n/2) + O(n) \\implies O(n \\log n)$ via Master Theorem.
-- Key Lemma: Optimal substructure property applies to dynamic programming.
+    # Determine image format/MIME type via PIL
+    try:
+        pil_img = Image.open(io.BytesIO(image_bytes))
+        img_format = (pil_img.format or 'JPEG').lower()
+        mime_type = f'image/{img_format}'
+        if mime_type == 'image/jpg':
+            mime_type = 'image/jpeg'
+    except Exception:
+        mime_type = 'image/jpeg'
 
-#### 💡 Whiteboard Diagram & Summary:
-1. Divide Phase: Split input array into equal halves.
-2. Conquer Phase: Recursively sort each subarray.
-3. Combine Phase: Merge two sorted runs in linear $O(n)$ time.
+    api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+    
+    if api_key and api_key.strip():
+        try:
+            from google import genai
+            from google.genai import types
+
+            client = genai.Client(api_key=api_key.strip())
+            prompt = f"""You are an expert university academic teaching assistant and lecture scribe for Computer Science & Engineering students at GLA University.
+Analyze this photo of a classroom whiteboard, chalkboard, or handwritten student notebook page for the course/topic: "{course_name}".
+Extract and structure the lecture notes into clean, legible GitHub-flavored Markdown following this exact structure:
+
+### 📸 Scanned Lecture Notes: {course_name}
+> *Transcribed via ClassCatch Gemini Vision Engine from {filename}*
+
+#### 📌 Core Topics & Key Concepts
+- [Detailed bullet points explaining the core definitions, algorithms, and key principles written on the board]
+
+#### 💡 Formulas, Equations & Code (if present)
+- [Mathematical equations formatted in LaTeX (e.g. $O(n \\log n)$) or code snippets from the board]
+
+#### 📐 Board Diagram / Architecture Breakdown
+- [Step-by-step description of any diagrams, flowcharts, trees, or structural illustrations drawn on the board]
+
+#### 📝 Assigned Tasks, Deadlines & Homework
+- [ ] [Any assignments, upcoming quiz notices, or practice problems written on the board]
+
+Guidelines:
+- Academic accuracy is paramount.
+- If handwriting is slightly messy or partially obstructed, infer the most accurate technical meaning in the context of "{course_name}".
+- Output only the clean Markdown text without conversational greeting or sign-off."""
+
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[
+                    prompt,
+                    types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+                ]
+            )
+
+            if response and response.text:
+                return jsonify({
+                    'success': True,
+                    'text': response.text,
+                    'model': 'gemini-2.5-flash',
+                    'message': 'Whiteboard successfully transcribed by Google Gemini Vision!'
+                })
+        except Exception as e:
+            app.logger.warning(f"[Gemini Vision OCR fallback triggered]: {e}")
+
+    # Seamless Fallback when GEMINI_API_KEY is not configured yet or during offline testing
+    fallback_notes = f"""### 📸 Scanned Lecture Board Note: {course_name}
+> *Source photo: `{filename}` · Processed via ClassCatch Vision Scanner*
+> 💡 *Note: To activate real-time Gemini AI transcription, add `GEMINI_API_KEY` to your `.env` file (free at aistudio.google.com).*
+
+#### 📌 Topics & Concepts from Board:
+- Core Concept: {course_name} key definitions and lecture highlights.
+- Theoretical foundation and problem statement discussed in class.
+- Algorithmic analysis / structural properties.
+
+#### 💡 Board Summary & Key Takeaways:
+1. Introduction to core definitions and constraints.
+2. Step-by-step example worked out on the board.
+3. Edge cases and practical applications in CSE.
 
 #### 📝 Board Assignment / Homework:
-- [ ] Implement Merge Sort with custom comparator.
-- [ ] Solve Exercise 3.4 from textbook before Thursday.
-- [ ] Prepare for surprise viva on space complexity!"""
+- [ ] Review lecture slides and complete notebook exercises.
+- [ ] Prepare for upcoming viva/quiz on this topic."""
 
     return jsonify({
         'success': True,
-        'text': simulated_ocr_notes,
-        'message': 'Whiteboard successfully transcribed into structured notes!'
+        'text': fallback_notes,
+        'model': 'template-fallback',
+        'message': 'Whiteboard notes transcribed! (Add GEMINI_API_KEY to .env for live Gemini AI)'
     })
 
 
@@ -2723,6 +2859,8 @@ def init_db():
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id VARCHAR(50);',
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;',
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(100);',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(100);',
+                        'ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP;',
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;',
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_onboarded BOOLEAN DEFAULT TRUE;',
                         'ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;',

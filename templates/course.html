@@ -183,6 +183,11 @@
                             <a href="{{ url_for('summary_detail', summary_id=s.id) }}" class="btn btn-sm btn-light border rounded-pill px-3">
                                 Full View
                             </a>
+
+                            <a href="https://api.whatsapp.com/send?text={{ ('📚 *ClassCatch Notes: ' ~ course.code ~ ' - ' ~ (s.topic or 'Lecture') ~ '*\n📅 Date: ' ~ s.date ~ '\n\n' ~ s.content[:160] ~ '...\n\n🔗 View full note: ' ~ request.host_url ~ 'summary/' ~ s.id)|urlencode }}" 
+                               target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-2 py-1" title="Share notes to WhatsApp class group">
+                                <i class="bi bi-whatsapp"></i>
+                            </a>
                         </div>
                     </div>
                 </div>

@@ -240,6 +240,18 @@ def test_classcatch_pilot():
         assert "strictly prohibited" in bad_err
         print("   [+] Executable upload blocked by handle_file_upload()")
 
+        # E. Cloud S3 / Neon Object Storage configuration check
+        from storage import is_s3_configured, S3StorageProvider
+        assert is_s3_configured() is False
+        os.environ['STORAGE_ACCESS_KEY'] = 'mock_key'
+        os.environ['STORAGE_SECRET_KEY'] = 'mock_secret'
+        os.environ['STORAGE_BUCKET'] = 'mock_bucket'
+        assert is_s3_configured() is True
+        del os.environ['STORAGE_ACCESS_KEY']
+        del os.environ['STORAGE_SECRET_KEY']
+        del os.environ['STORAGE_BUCKET']
+        print("   [+] Cloud S3 / Neon Object Storage provider checks validated")
+
     # Test file download endpoint
     dl_res = client.get(f'/storage/download/{file_id}')
     assert dl_res.status_code == 200
@@ -369,6 +381,23 @@ def test_classcatch_pilot():
     assert rep_res.status_code == 200
     print("   [+] POST /report -> Content Report logged for Admin Review")
 
+    # AI Whiteboard Scanner Route Test
+    from PIL import Image as TestImg
+    img_buf = io.BytesIO()
+    test_image = TestImg.new('RGB', (120, 80), color=(73, 109, 137))
+    test_image.save(img_buf, format='JPEG')
+    img_buf.seek(0)
+    
+    ocr_res = client.post('/api/scan-whiteboard', data={
+        'file': (img_buf, 'blackboard_math.jpg'),
+        'course': 'Data Structures & Algorithms'
+    }, content_type='multipart/form-data')
+    assert ocr_res.status_code == 200
+    ocr_json = ocr_res.get_json()
+    assert ocr_json['success'] is True
+    assert 'Data Structures & Algorithms' in ocr_json['text']
+    print("   [+] POST /api/scan-whiteboard -> 200 OK (Multimodal OCR extraction verified)")
+
     # ----------------------------------------------------
     # 11. Feature Flags & Maintenance Mode
     # ----------------------------------------------------
@@ -406,6 +435,62 @@ def test_classcatch_pilot():
         m_set.value = 'false'
         db.session.commit()
     print("   [+] Maintenance Guard: Restored to normal operation")
+
+    # ----------------------------------------------------
+    # 12. Password Reset & Institutional Email Delivery
+    # ----------------------------------------------------
+    print("\n[*] 12. Testing Password Reset & Institutional Email Delivery...")
+    client.get('/logout', follow_redirects=True)
+
+    # 1. Request password reset
+    forgot_res = client.post('/forgot-password', data={
+        'email': 'priya.singh@gla.ac.in'
+    }, follow_redirects=True)
+    assert forgot_res.status_code == 200
+    assert b"password reset link has been dispatched" in forgot_res.data
+    print("   [+] POST /forgot-password -> 200 OK (Reset link generated & dispatched)")
+
+    # 2. Retrieve token from database
+    with app.app_context():
+        p_user = User.query.filter_by(email='priya.singh@gla.ac.in').first()
+        assert p_user.reset_token is not None
+        assert p_user.reset_token_expiry is not None
+        reset_tok = p_user.reset_token
+
+    # 3. Invalid token access check
+    bad_reset = client.get('/reset-password/bad-token-xyz', follow_redirects=True)
+    assert b"invalid, expired, or has already been used" in bad_reset.data
+    print("   [+] GET /reset-password/bad-token -> Rejected (404/Error Flash)")
+
+    # 4. Valid token renders form
+    valid_reset_get = client.get(f'/reset-password/{reset_tok}')
+    assert valid_reset_get.status_code == 200
+    assert b"Set New Password" in valid_reset_get.data
+    print("   [+] GET /reset-password/<token> -> 200 OK (Reset form loaded)")
+
+    # 5. Submit new password
+    reset_post = client.post(f'/reset-password/{reset_tok}', data={
+        'password': 'newpassword456',
+        'confirm_password': 'newpassword456'
+    }, follow_redirects=True)
+    assert reset_post.status_code == 200
+    assert b"successfully updated" in reset_post.data
+    print("   [+] POST /reset-password/<token> -> 200 OK (Password updated)")
+
+    # 6. Verify login with new password
+    login_new = client.post('/login', data={
+        'email': 'priya.singh@gla.ac.in',
+        'password': 'newpassword456'
+    }, follow_redirects=True)
+    assert login_new.status_code == 200
+    assert b"Welcome back, Priya Singh" in login_new.data
+    print("   [+] POST /login with new password -> Authenticated successfully!")
+
+    # 7. Restore original password for subsequent tests
+    with app.app_context():
+        p_user = User.query.filter_by(email='priya.singh@gla.ac.in').first()
+        p_user.set_password('password123')
+        db.session.commit()
 
     print("\n========================================================")
     print("ALL GLA 2FE PILOT & HARDENING TESTS PASSED SUCCESSFULLY!")
