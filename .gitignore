@@ -22,3 +22,6 @@ ENV/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Local secrets & credentials
+.env
