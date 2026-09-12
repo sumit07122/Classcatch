@@ -159,6 +159,11 @@ class S3StorageProvider(StorageProvider):
         )
 
 
+class StorageConfigurationError(RuntimeError):
+    """Raised when production cloud storage credentials are missing or invalid."""
+    pass
+
+
 def is_s3_configured() -> bool:
     """Check if minimum required credentials for S3/R2/Neon storage are present."""
     access_key = os.environ.get('STORAGE_ACCESS_KEY')
@@ -168,17 +173,27 @@ def is_s3_configured() -> bool:
 
 
 def get_storage_provider() -> StorageProvider:
-    """Factory function returning the configured storage provider with automatic fallback."""
+    """Factory function returning the configured storage provider with strict production safeguards."""
+    is_prod = os.environ.get('ENVIRONMENT', '').lower() in ('production', 'prod') or os.environ.get('FLASK_ENV') == 'production'
     provider_name = os.environ.get('STORAGE_PROVIDER', 'local').lower()
+
     if provider_name in {'s3', 'r2', 'neon'}:
         if is_s3_configured():
             try:
                 return S3StorageProvider()
             except Exception as e:
                 import logging
-                logging.getLogger('classcatch.storage').warning(f"Failed to initialize S3 provider, falling back to local: {e}")
+                logging.getLogger('classcatch.storage').error(f"Failed to initialize S3 provider: {e}")
+                if is_prod:
+                    raise StorageConfigurationError(f"Production object storage initialization failed: {e}")
                 return LocalStorageProvider()
         else:
+            if is_prod:
+                raise StorageConfigurationError(
+                    "Production is configured for object storage (STORAGE_PROVIDER=s3), but required credentials "
+                    "(STORAGE_ACCESS_KEY, STORAGE_SECRET_KEY, STORAGE_BUCKET) are missing. "
+                    "Refusing silent fallback to ephemeral disk to prevent data loss."
+                )
             return LocalStorageProvider()
     return LocalStorageProvider()
 
@@ -214,7 +229,11 @@ def handle_file_upload(file_storage, uploader_id: int, course_id: int = None, se
     mime_type = mime_type or 'application/octet-stream'
     file_category = get_file_category(raw_filename)
 
-    provider = get_storage_provider()
+    try:
+        provider = get_storage_provider()
+    except StorageConfigurationError as e:
+        return None, f"System Storage Error: {str(e)}"
+
     storage_path = provider.save(file_storage, stored_name, mime_type=mime_type)
     actual_provider = 's3' if isinstance(provider, S3StorageProvider) else 'local'
 

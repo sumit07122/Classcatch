@@ -76,8 +76,8 @@ pip install -r requirements.txt
 ### 3. Configure Database
 Create a `.env` file in the root directory:
 ```env
-DATABASE_URL=postgresql://neondb_owner:npg_1aH6lbvWfhzc@ep-divine-heart-aeteyc0r-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require
-SECRET_KEY=classcatch-production-secret-2026
+DATABASE_URL=postgresql://username:password@ep-sample-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
+SECRET_KEY=your-production-secret-key-here
 ```
 *(If `DATABASE_URL` is omitted, ClassCatch automatically defaults to local SQLite `sqlite:///classcatch.db`).*
 

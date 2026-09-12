@@ -39,9 +39,17 @@ raw_db_url = os.environ.get('DATABASE_URL', 'sqlite:///classcatch.db')
 if raw_db_url.startswith("postgres://"):
     raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
 
+is_production = os.environ.get('ENVIRONMENT', '').lower() in ('production', 'prod') or os.environ.get('FLASK_ENV') == 'production'
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'classcatch-secret-key-2026-prod')
 app.config['SQLALCHEMY_DATABASE_URI'] = raw_db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Security: Hardened Session Cookie Configuration
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+if is_production:
+    app.config['SESSION_COOKIE_SECURE'] = True
 
 # Initialize extensions
 db.init_app(app)
@@ -56,6 +64,41 @@ login_manager.login_message_category = 'warning'
 def load_user(user_id):
     """Flask-Login user loader."""
     return db.session.get(User, int(user_id))
+
+
+# ==========================================
+# Security Headers & Safe Error Handlers
+# ==========================================
+
+@app.after_request
+def add_security_headers(response):
+    """Inject robust production security headers on every response."""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    if is_production:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
+
+
+@app.errorhandler(404)
+def not_found_error(error):
+    """Safe 404 handler without disclosing filesystem paths or tracebacks."""
+    return render_template('error.html', error_code=404, error_title="Page Not Found", error_message="The academic resource or section you requested could not be located."), 404
+
+
+@app.errorhandler(403)
+def forbidden_error(error):
+    """Safe 403 handler for section isolation and unauthorized requests."""
+    return render_template('error.html', error_code=403, error_title="Access Forbidden", error_message="You do not have authorization to view or modify this section or resource."), 403
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Safe 500 handler preventing raw traceback exposure."""
+    db.session.rollback()
+    return render_template('error.html', error_code=500, error_title="Internal Server Error", error_message="An unexpected system error occurred. The technical team has logged this occurrence."), 500
 
 
 # ==========================================
@@ -1689,6 +1732,37 @@ def submit_report():
     return redirect(request.referrer or url_for('index'))
 
 
+@app.route('/feedback', methods=['POST'])
+@login_required
+def submit_pilot_feedback():
+    """Submit 2FE pilot feedback (Bug, Suggestion, Confusing UI, Missing information, Wrong academic data, Other)."""
+    category = request.form.get('category', 'Other')
+    feedback_text = request.form.get('feedback', '').strip()
+
+    valid_categories = ['Bug', 'Suggestion', 'Confusing UI', 'Missing information', 'Wrong academic data', 'Other']
+    if category not in valid_categories:
+        category = 'Other'
+
+    if not feedback_text:
+        flash('Please provide your feedback or suggestion before submitting.', 'warning')
+        return redirect(request.referrer or url_for('index'))
+
+    report = Report(
+        reporter_id=current_user.id,
+        target_type='pilot_feedback',
+        target_id=current_user.id,
+        category=category,
+        reason=feedback_text,
+        status='Open'
+    )
+    db.session.add(report)
+    db.session.commit()
+    log_audit('feedback.submitted', 'pilot_feedback', report.id, f"Category: {category}")
+
+    flash('💡 Thank you for your 2FE Pilot feedback! The academic technical team reviews every submission.', 'success')
+    return redirect(request.referrer or url_for('index'))
+
+
 @app.route('/maintenance')
 def maintenance():
     """Maintenance splash display when administrator enables maintenance mode."""
@@ -2657,10 +2731,17 @@ def admin_storage():
     files = files_q.order_by(StorageFile.created_at.desc()).all()
     total_bytes = sum(f.file_size for f in StorageFile.query.all())
 
+    raw_provider = os.environ.get('STORAGE_PROVIDER', 'local').lower()
+    from storage import is_s3_configured
+    if raw_provider in {'s3', 'r2', 'neon'}:
+        display_provider = f"S3 ({raw_provider.upper()})" if is_s3_configured() else "S3 (Credentials Missing)"
+    else:
+        display_provider = "Local Filesystem"
+
     stats = {
         'total_files': StorageFile.query.count(),
         'total_size_mb': f"{total_bytes / (1024 * 1024):.2f}",
-        'provider': os.environ.get('STORAGE_PROVIDER', 'local').upper(),
+        'provider': display_provider,
         'pdf_count': StorageFile.query.filter_by(file_type='pdf').count(),
         'image_count': StorageFile.query.filter_by(file_type='image').count(),
         'doc_count': StorageFile.query.filter_by(file_type='document').count()

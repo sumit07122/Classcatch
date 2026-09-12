@@ -123,6 +123,12 @@
                     </button>
 
                     {% if current_user.is_authenticated %}
+                        <!-- 2FE Pilot Feedback Button -->
+                        <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs" data-bs-toggle="modal" data-bs-target="#pilotFeedbackModal" title="Give 2FE Pilot Feedback">
+                            <i class="bi bi-chat-heart text-warning"></i>
+                            <span class="d-none d-lg-inline small fw-bold text-dark">Feedback</span>
+                        </button>
+
                         <!-- Student Karma Badge -->
                         <div class="d-none d-xl-flex align-items-center gap-1 bg-white border rounded-pill px-3 py-1 shadow-xs" title="{{ current_user.badge.name }}">
                             <i class="fa-solid {{ current_user.badge.icon }} text-warning"></i>
@@ -362,6 +368,46 @@
                     <div class="modal-footer border-0 pt-0">
                         <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold">Submit Report</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2FE Pilot Feedback Modal -->
+    <div class="modal fade" id="pilotFeedbackModal" tabindex="-1" aria-labelledby="pilotFeedbackModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow rounded-4">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="pilotFeedbackModalLabel">
+                        <i class="bi bi-chat-heart text-warning me-2"></i> 2FE Pilot Feedback & Suggestions
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('submit_pilot_feedback') }}" method="POST">
+                    <div class="modal-body pt-3">
+                        <p class="text-muted small mb-3">
+                            You are part of the exclusive GLA 2FE Closed Pilot. Help us improve ClassCatch before the campus launch.
+                        </p>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">FEEDBACK CATEGORY</label>
+                            <select name="category" class="form-select rounded-3">
+                                <option value="Bug">🐛 Bug / Technical Issue</option>
+                                <option value="Suggestion">💡 Suggestion / Feature Improvement</option>
+                                <option value="Confusing UI">🤔 Confusing UI / Difficult to use</option>
+                                <option value="Missing information">📑 Missing Information / Notes</option>
+                                <option value="Wrong academic data">⚠️ Wrong Academic Data / Timings</option>
+                                <option value="Other">📝 Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label fw-bold small text-muted">YOUR COMMENTS</label>
+                            <textarea name="feedback" class="form-control rounded-3" rows="3" required placeholder="Tell us what worked, what broke, or what could be improved..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning-gradient rounded-pill px-4 fw-bold">Submit Feedback</button>
                     </div>
                 </form>
             </div>
