@@ -13,8 +13,8 @@ import os
 import sys
 from dotenv import load_dotenv
 
-# Load .env file
-load_dotenv()
+# Load .env file with override
+load_dotenv(override=True)
 
 from app import app
 from models import db, User, Course, Summary, ChatMessage, Announcement, AttendanceRecord, Deadline, Resource
