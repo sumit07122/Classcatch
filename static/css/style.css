@@ -701,46 +701,6 @@ footer {
     }
 }
 
-/* ===================================================
-   Google Sign-In & Auth Modern Styling
-   =================================================== */
-.btn-google {
-    background: #ffffff;
-    color: #1f2937;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 0.92rem;
-    padding: 0.65rem 1.25rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    width: 100%;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    text-decoration: none;
-    cursor: pointer;
-}
-
-.btn-google:hover {
-    background: #f9fafb;
-    border-color: #d1d5db;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
-    color: #111827;
-}
-
-.btn-google-demo {
-    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-    color: #ffffff;
-    border: none;
-}
-
-.btn-google-demo:hover {
-    background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
-    color: #ffffff;
-}
 
 .auth-divider {
     display: flex;

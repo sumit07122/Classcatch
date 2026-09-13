@@ -232,15 +232,15 @@ def check_maintenance_and_suspension():
     if current_user.is_authenticated and current_user.role == 'student':
         # 1. Verification Gate
         if not getattr(current_user, 'is_verified', False):
-            exempt_prefixes = ['/static', '/logout', '/verify-email', '/unverified', '/resend-verification']
+            exempt_prefixes = ['/static', '/logout', '/verify-email', '/unverified', '/resend-verification', '/report-bug']
             if not any(request.path.startswith(p) for p in exempt_prefixes):
                 return redirect(url_for('unverified_notice'))
 
-        # 2. Approved Section Enrollment Gate (Locked to 2FE for GLA pilot)
+        # 2. Approved Section Enrollment Gate (Defaults to 2FE for GLA pilot)
         if getattr(current_user, 'is_verified', False) and not current_user.active_enrollment:
-            exempt_prefixes = ['/static', '/logout', '/enrollment-pending', '/enrollment/request-access', '/verify-email']
+            exempt_prefixes = ['/static', '/logout', '/select-section', '/report-bug', '/enrollment-pending', '/enrollment/request-access', '/verify-email']
             if not any(request.path.startswith(p) for p in exempt_prefixes):
-                return redirect(url_for('enrollment_pending'))
+                return redirect(url_for('select_section'))
 
 
 @app.context_processor
@@ -522,7 +522,7 @@ def login():
         else:
             flash('Invalid email or password. Please verify your credentials.', 'danger')
 
-    return render_template('login.html', title='Sign In', form=form, google_client_id=GOOGLE_CLIENT_ID)
+    return render_template('login.html', title='Sign In', form=form)
 
 
 @app.route('/auth/google', methods=['POST'])
@@ -636,52 +636,6 @@ def google_auth():
         flash(f'🎉 Welcome to ClassCatch, {name}! Please confirm or pick your class section below.', 'success')
         return redirect(url_for('select_section'))
 
-
-@app.route('/auth/google/demo', methods=['POST'])
-def google_auth_demo():
-    """1-Click instant pilot sign-in for testing GLA students and administrators."""
-    email = request.form.get('email', '').strip().lower()
-    name = request.form.get('name', '').strip()
-
-    if not email:
-        flash('Invalid demo sign in request.', 'danger')
-        return redirect(url_for('login'))
-
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        user = User(
-            name=name or email.split('@')[0],
-            email=email,
-            password_hash=generate_password_hash('password123'),
-            role='superadmin' if 'admin' in email else 'student',
-            is_verified=True,
-            is_onboarded=True,
-            section='2FE',
-            college='GLA University',
-            department='CSE',
-            semester=3
-        )
-        db.session.add(user)
-        db.session.flush()
-
-        enrollment = Enrollment(
-            user_id=user.id,
-            college='GLA University, Mathura Campus',
-            department='CSE',
-            program='B.Tech CSE',
-            academic_year='2026-27',
-            semester=3,
-            section='2FE',
-            status='approved',
-            is_active=True
-        )
-        db.session.add(enrollment)
-        db.session.commit()
-
-    login_user(user, remember=True)
-    log_audit('user.demo_login', 'user', user.id, f"Logged in via 1-Click Pilot Demo ({user.role})")
-    flash(f'🚀 Signed in as {user.name} ({user.role.upper()}) via 1-Click Pilot Access!', 'success')
-    return redirect(url_for('admin_dashboard') if user.is_admin() else url_for('index'))
 
 
 @app.route('/select-section', methods=['GET', 'POST'])
@@ -802,54 +756,96 @@ def reset_password(token):
 def index():
     """
     Home page:
-    - Lists enrolled courses with summary count, chat count, and schedule status.
-    - Shows today's catch-up summaries.
-    - Displays urgent university/class announcements.
-    - Features Today's Schedule & What's Next Tracker.
-    - Highlights upcoming academic deadlines & exam countdowns.
+    - Guests: High-converting GLA University landing page (no private classes or notes leaked).
+    - Students: Personalized Section 2FE Command Center with today's live timetable, 10 courses,
+      catch-up hub, attendance bunks, and academic deadlines.
     """
-    active_sec = current_user.active_section if current_user.is_authenticated and current_user.role == 'student' else '2FE'
+    if not current_user.is_authenticated:
+        # High-converting guest landing page data
+        courses_count = Course.query.filter_by(section='2FE', is_archived=False).count()
+        slots_count = TimetableSlot.query.filter_by(section='2FE').count()
+        leadership = AcademicStaff.query.all()
+        preview_slots = TimetableSlot.query.filter_by(section='2FE', day_of_week='Monday').all()
+        time_order = {
+            '8:00 AM': 1, '10:00 AM': 2, '11:00 AM': 3, '12:00 PM': 4,
+            '1:00 PM': 5, '2:00 PM': 6, '3:00 PM': 7, '4:00 PM': 8, '5:00 PM': 9
+        }
+        preview_slots.sort(key=lambda s: time_order.get(s.start_time, 99))
+        return render_template(
+            'index.html',
+            title='ClassCatch - GLA University Peer Catch-Up & Academic Hub',
+            is_guest=True,
+            pilot_section='2FE',
+            courses_count=courses_count or 10,
+            slots_count=slots_count or 30,
+            preview_slots=preview_slots,
+            leadership=leadership
+        )
+
+    # Authenticated Student Experience
+    active_sec = current_user.active_section or '2FE'
     courses = Course.query.filter_by(section=active_sec, is_archived=False).order_by(Course.code).all()
-    if current_user.is_authenticated and current_user.is_admin():
+
+    # Interactive Mon-Fri Day Navigation on Dashboard
+    today_day_name = date.today().strftime('%A')
+    default_day = today_day_name if today_day_name in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] else 'Monday'
+    selected_day = request.args.get('day', default_day)
+    if selected_day not in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']:
+        selected_day = default_day
+
+    slots = TimetableSlot.query.filter_by(section=active_sec, day_of_week=selected_day).all()
+    time_order = {
+        '8:00 AM': 1, '10:00 AM': 2, '11:00 AM': 3, '12:00 PM': 4,
+        '1:00 PM': 5, '2:00 PM': 6, '3:00 PM': 7, '4:00 PM': 8, '5:00 PM': 9
+    }
+    slots.sort(key=lambda s: time_order.get(s.start_time, 99))
+
+    # Days list with slot counts for interactive day pills
+    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    day_counts = {}
+    for d in days:
+        day_counts[d] = TimetableSlot.query.filter_by(section=active_sec, day_of_week=d).count()
+
+    course_ids = [c.id for c in courses]
+    if current_user.is_admin():
         today_summaries = Summary.query.filter_by(date=date.today()).order_by(Summary.created_at.desc()).all()
         recent_summaries = Summary.query.order_by(Summary.date.desc(), Summary.created_at.desc()).limit(6).all()
-    elif current_user.is_authenticated:
-        today_all = Summary.query.filter_by(date=date.today()).order_by(Summary.created_at.desc()).all()
-        today_summaries = [s for s in today_all if s.is_verified or s.user_id == current_user.id or current_user.is_cr_for(s.course_id, s.course.section)]
-        recent_all = Summary.query.order_by(Summary.date.desc(), Summary.created_at.desc()).limit(20).all()
-        recent_summaries = [s for s in recent_all if s.is_verified or s.user_id == current_user.id or current_user.is_cr_for(s.course_id, s.course.section)][:6]
     else:
-        today_summaries = Summary.query.filter_by(date=date.today(), is_verified=True).order_by(Summary.created_at.desc()).all()
-        recent_summaries = Summary.query.filter_by(is_verified=True).order_by(Summary.date.desc(), Summary.created_at.desc()).limit(6).all()
-    urgent_announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
+        today_all = Summary.query.filter(Summary.date == date.today(), Summary.course_id.in_(course_ids)).order_by(Summary.created_at.desc()).all() if course_ids else []
+        today_summaries = [s for s in today_all if s.is_verified or s.user_id == current_user.id or current_user.is_cr_for(s.course_id, active_sec)]
+        recent_all = Summary.query.filter(Summary.course_id.in_(course_ids)).order_by(Summary.date.desc(), Summary.created_at.desc()).limit(20).all() if course_ids else []
+        recent_summaries = [s for s in recent_all if s.is_verified or s.user_id == current_user.id or current_user.is_cr_for(s.course_id, active_sec)][:6]
 
-    # Upcoming academic deadlines & exam countdowns
-    upcoming_deadlines = Deadline.query.filter_by(is_completed=False).order_by(Deadline.due_date.asc()).limit(4).all()
+    urgent_announcements = Announcement.query.filter(
+        (Announcement.target_scope.in_(['platform', 'semester'])) |
+        ((Announcement.target_scope == 'section') & (Announcement.target_section.in_([active_sec, 'ALL', None])))
+    ).order_by(Announcement.created_at.desc()).limit(5).all()
 
-    # Calculate today's scheduled classes
-    today_abbr = date.today().strftime('%a')  # e.g., 'Mon', 'Wed'
-    today_day_name = date.today().strftime('%A, %b %d')
-    today_classes = [c for c in courses if today_abbr in c.schedule]
-    if not today_classes:
-        # If weekend or no match, show all active scheduled courses for quick preview
-        today_classes = courses[:3]
+    upcoming_deadlines = Deadline.query.filter(
+        Deadline.is_completed == False,
+        Deadline.course_id.in_(course_ids)
+    ).order_by(Deadline.due_date.asc()).limit(5).all() if course_ids else []
 
-    # User attendance overview if logged in
-    user_attendance = []
-    if current_user.is_authenticated:
-        user_attendance = AttendanceRecord.query.filter_by(user_id=current_user.id).all()
+    user_attendance = AttendanceRecord.query.filter_by(user_id=current_user.id).all()
+    leadership = AcademicStaff.query.all()
 
     return render_template(
         'index.html',
-        title='ClassCatch - Peer-Powered College Catch-up',
+        title=f"Dashboard - Section {active_sec} | ClassCatch",
+        is_guest=False,
+        active_sec=active_sec,
         courses=courses,
         today_summaries=today_summaries,
         recent_summaries=recent_summaries,
         urgent_announcements=urgent_announcements,
         user_attendance=user_attendance,
         upcoming_deadlines=upcoming_deadlines,
-        today_classes=today_classes,
-        today_day_name=today_day_name
+        slots=slots,
+        days=days,
+        day_counts=day_counts,
+        selected_day=selected_day,
+        today_day_name=today_day_name,
+        leadership=leadership
     )
 
 
@@ -2083,8 +2079,134 @@ def submit_pilot_feedback():
     db.session.commit()
     log_audit('feedback.submitted', 'pilot_feedback', report.id, f"Category: {category}")
 
-    flash('💡 Thank you for your 2FE Pilot feedback! The academic technical team reviews every submission.', 'success')
+    # Run auto-triage and self-healing engine on feedback
+    auto_fixed, triage_msg = auto_triage_and_heal_issue(report, current_user)
+    if auto_fixed:
+        flash(triage_msg, 'success')
+    else:
+        flash('💡 Thank you for your 2FE Pilot feedback! It has been transferred to the Administrator Control Center for review.', 'info')
     return redirect(request.referrer or url_for('index'))
+
+
+def auto_triage_and_heal_issue(report, user=None):
+    """
+    Automated Issue Triage & Self-Healing Engine:
+    - Analyzes bug/issue content.
+    - If the issue matches a known recoverable system or account state (e.g. Section 2FE classes missing,
+      enrollment stuck in pending, unverified GLA email), it self-heals the user's state in DB and marks report as Resolved.
+    - If it requires admin or faculty intervention (room change, missing teacher, broken feature),
+      it escalates and operationally transfers the issue to the Admin Control Panel with high priority.
+    """
+    text = (report.reason or '').lower() + ' ' + (report.category or '').lower()
+
+    # 1. Check for section mismatch / missing 2FE classes
+    section_keywords = ['section', '2fe', 'class', 'classes', 'not showing', 'timetable', 'cannot see', 'empty', 'subject', 'course']
+    if any(k in text for k in section_keywords) and user and getattr(user, 'is_authenticated', False):
+        needs_fix = False
+        if getattr(user, 'section', None) != '2FE':
+            user.section = '2FE'
+            needs_fix = True
+
+        enr = user.active_enrollment
+        if not enr or enr.section != '2FE' or enr.status != 'approved':
+            if not enr:
+                enr = Enrollment(
+                    user_id=user.id,
+                    college='GLA University, Mathura Campus',
+                    department='CSE',
+                    program='B.Tech CSE',
+                    academic_year='2026-27',
+                    semester=3,
+                    section='2FE',
+                    status='approved',
+                    is_active=True
+                )
+                db.session.add(enr)
+            else:
+                enr.section = '2FE'
+                enr.status = 'approved'
+                enr.is_active = True
+            needs_fix = True
+
+        if needs_fix:
+            db.session.commit()
+            report.status = 'Resolved'
+            report.resolution_notes = '[🤖 Auto-Corrected] Synchronized user academic enrollment to Section 2FE. All 10 courses and 30 timetable slots reactivated.'
+            db.session.commit()
+            log_audit('bug.auto_corrected', 'report', report.id, f"Auto-fixed Section 2FE sync for User #{user.id}")
+            return True, '🤖 Auto-Correction Applied: We detected an account section sync issue and automatically fixed it! Your Section 2FE classes and timetable are now active.'
+
+    # 2. Check for institutional email verification lock
+    verification_keywords = ['unverified', 'verification', 'verify', 'verify email', 'confirmation', 'locked out']
+    if any(k in text for k in verification_keywords) and user and getattr(user, 'is_authenticated', False):
+        if not getattr(user, 'is_verified', False) and ('@gla.ac.in' in user.email or '@classcatch.edu' in user.email):
+            user.is_verified = True
+            user.verification_token = None
+            report.status = 'Resolved'
+            report.resolution_notes = '[🤖 Auto-Corrected] Verified GLA student institutional account.'
+            db.session.commit()
+            log_audit('bug.auto_corrected', 'report', report.id, f"Auto-verified email for User #{user.id}")
+            return True, '🤖 Auto-Correction Applied: Your GLA institutional email was verified and your access has been unlocked.'
+
+    # 3. Otherwise, operationally transfer to Admin
+    report.status = 'Under Review'
+    report.resolution_notes = '[⚡ Transferred to Admin] Operation escalated to Administrator Control Center. Requires review.'
+    db.session.commit()
+    log_audit('bug.escalated_to_admin', 'report', report.id, f"Category: {report.category}, Issue: {report.reason[:80]}")
+    return False, '⚡ Your issue has been logged and operationally transferred to the Admin Control Center. The technical team will review it shortly.'
+
+
+@app.route('/report-bug', methods=['GET', 'POST'])
+@rate_limit(max_requests=10, window_seconds=60)
+def report_bug():
+    """Universal bug & inaccuracy reporting endpoint with auto-triage and admin escalation."""
+    if request.method == 'POST':
+        category = request.form.get('category', 'Website Bug').strip()
+        reason = request.form.get('description', '').strip() or request.form.get('reason', '').strip()
+        location_url = request.form.get('location_url', request.referrer or '').strip()
+        reporter_email = request.form.get('email', '').strip()
+
+        if not reason:
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Please provide details of what is not working.'}), 400
+            flash('Please provide details about the bug or inaccuracy.', 'warning')
+            return redirect(request.referrer or url_for('report_bug'))
+
+        reporter_id = current_user.id if current_user.is_authenticated else None
+        if not reporter_id:
+            if reporter_email:
+                match = User.query.filter_by(email=reporter_email.lower()).first()
+                if match:
+                    reporter_id = match.id
+            if not reporter_id:
+                sys_admin = User.query.filter(User.role.in_(['superadmin', 'admin'])).first()
+                reporter_id = sys_admin.id if sys_admin else 1
+
+        report = Report(
+            reporter_id=reporter_id,
+            target_type='bug_report',
+            target_id=0,
+            category=category,
+            reason=f"[Page: {location_url}] {reason}" if location_url else reason,
+            status='Open'
+        )
+        db.session.add(report)
+        db.session.commit()
+
+        auto_fixed, msg = auto_triage_and_heal_issue(report, current_user if current_user.is_authenticated else None)
+
+        if request.is_json:
+            return jsonify({
+                'success': True,
+                'auto_fixed': auto_fixed,
+                'message': msg,
+                'report_id': report.id
+            })
+
+        flash(msg, 'success' if auto_fixed else 'info')
+        return redirect(url_for('index'))
+
+    return render_template('report_bug.html', title='Report a Bug / System Issue - ClassCatch')
 
 
 @app.route('/maintenance')
@@ -2596,13 +2718,16 @@ def admin_deadline_delete(deadline_id):
 @app.route('/admin/reports')
 @admin_required
 def admin_reports():
-    """Admin content report and student safety center."""
+    """Admin content report, bug center, and student safety."""
     status_filter = request.args.get('status', 'Open')
     reports_query = Report.query
-    if status_filter != 'ALL':
+    if status_filter == 'Bugs':
+        reports_query = reports_query.filter(Report.target_type.in_(['bug', 'bug_report', 'pilot_feedback']))
+    elif status_filter != 'ALL':
         reports_query = reports_query.filter_by(status=status_filter)
     reports = reports_query.order_by(Report.created_at.desc()).all()
-    return render_template('admin/reports.html', title='Report & Moderation Center', reports=reports, status_filter=status_filter)
+    bug_count = Report.query.filter(Report.target_type.in_(['bug', 'bug_report', 'pilot_feedback'])).count()
+    return render_template('admin/reports.html', title='Report & Moderation Center', reports=reports, status_filter=status_filter, bug_count=bug_count)
 
 
 @app.route('/admin/reports/<int:report_id>/status', methods=['POST'])

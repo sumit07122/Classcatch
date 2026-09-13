@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center my-4">
+    <div class="col-lg-8 col-xl-7">
+        <div class="card card-modern p-4 p-md-5 bg-white shadow-sm border-0">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-danger-subtle text-danger rounded-circle mb-3 shadow-xs" style="width: 58px; height: 58px;">
+                    <i class="bi bi-bug fs-3"></i>
+                </div>
+                <h3 class="fw-extrabold text-dark mb-1">Report a Bug or System Issue</h3>
+                <p class="text-muted small mb-0">
+                    Spotted an error, wrong timetable/classroom info, or a broken button? 
+                    Our self-healing engine will attempt to auto-correct the issue or immediately escalate it to the GLA administrator team.
+                </p>
+            </div>
+
+            <form method="POST" action="{{ url_for('report_bug') }}">
+                <!-- Category Selection -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">
+                        <i class="bi bi-tag text-primary me-1"></i> Issue Category
+                    </label>
+                    <select name="category" class="form-select form-select-lg rounded-3 fs-6" required>
+                        <option value="Website Bug" selected>Website Bug / Broken Feature</option>
+                        <option value="Wrong Timetable / Room Info">Wrong Timetable, Period Timing, or Room Number</option>
+                        <option value="Section / Enrollment Issue">Cannot See Section 2FE Classes / Enrollment Sync Issue</option>
+                        <option value="Incorrect Notes / Subject Info">Incorrect Lecture Notes or Course Details</option>
+                        <option value="UI & Display Glitch">Mobile Display / Layout Glitch</option>
+                        <option value="Other">Other Academic Issue</option>
+                    </select>
+                </div>
+
+                <!-- Page Location -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">
+                        <i class="bi bi-link-45deg text-primary me-1"></i> Where did this occur?
+                    </label>
+                    <input type="text" name="location_url" id="reportLocationInput" class="form-control rounded-3" 
+                           placeholder="e.g. /timetable, Section 2FE Dashboard, etc." 
+                           value="{{ request.referrer or '' }}">
+                </div>
+
+                <!-- Reporter Email (if guest) -->
+                {% if not current_user.is_authenticated %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">
+                            <i class="bi bi-envelope text-primary me-1"></i> Your Email (Optional for updates)
+                        </label>
+                        <input type="email" name="email" class="form-control rounded-3" placeholder="name@gla.ac.in">
+                    </div>
+                {% endif %}
+
+                <!-- Description -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">
+                        <i class="bi bi-chat-text text-primary me-1"></i> Describe what went wrong
+                    </label>
+                    <textarea name="description" rows="4" class="form-control rounded-3" 
+                              placeholder="Please describe what happened, what was expected, or what data was incorrect..." required></textarea>
+                    <div class="form-text small text-muted mt-1">
+                        <i class="bi bi-robot text-primary me-1"></i>
+                        Our intelligent engine scans reports automatically to resolve section and account desyncs instantly.
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-danger py-3 fs-6 fw-bold shadow-xs">
+                        <i class="bi bi-send-fill me-2"></i> Submit Issue to Tech Team
+                    </button>
+                    <a href="{{ url_for('index') }}" class="btn btn-light border py-2 text-muted small">
+                        Cancel & Return
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Autofill location if empty
+    const locInput = document.getElementById('reportLocationInput');
+    if (locInput && !locInput.value && document.referrer) {
+        locInput.value = document.referrer;
+    }
+</script>
+{% endblock %}

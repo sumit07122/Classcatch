@@ -13,6 +13,9 @@
         </div>
 
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="{{ url_for('admin_reports', status='Bugs') }}" class="admin-btn {% if status_filter=='Bugs' %}admin-btn-danger{% else %}admin-btn-secondary{% endif %}">
+                <i class="fa-solid fa-bug"></i> Bugs & Issues ({{ bug_count }})
+            </a>
             <a href="{{ url_for('admin_reports', status='Open') }}" class="admin-btn {% if status_filter=='Open' %}admin-btn-danger{% else %}admin-btn-secondary{% endif %}">
                 <i class="fa-solid fa-flag"></i> Open Reports
             </a>
@@ -59,9 +62,19 @@
                                     {{ rep.reason }}
                                 </div>
                                 {% if rep.resolution_notes %}
-                                    <div style="font-size: 0.75rem; color: #6ee7b7; margin-top: 0.25rem;">
-                                        <em>Action Notes: {{ rep.resolution_notes }}</em>
-                                    </div>
+                                    {% if '[🤖 Auto-Corrected]' in rep.resolution_notes %}
+                                        <div style="font-size: 0.75rem; color: #34d399; margin-top: 0.35rem; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.3rem 0.5rem; border-radius: 4px;">
+                                            <strong><i class="fa-solid fa-robot me-1"></i> Auto-Corrected:</strong> {{ rep.resolution_notes.replace('[🤖 Auto-Corrected]', '').strip() }}
+                                        </div>
+                                    {% elif '[⚡ Transferred to Admin]' in rep.resolution_notes %}
+                                        <div style="font-size: 0.75rem; color: #fbbf24; margin-top: 0.35rem; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); padding: 0.3rem 0.5rem; border-radius: 4px;">
+                                            <strong><i class="fa-solid fa-bolt me-1"></i> Transferred to Admin:</strong> {{ rep.resolution_notes.replace('[⚡ Transferred to Admin]', '').strip() }}
+                                        </div>
+                                    {% else %}
+                                        <div style="font-size: 0.75rem; color: #6ee7b7; margin-top: 0.25rem;">
+                                            <em>Action Notes: {{ rep.resolution_notes }}</em>
+                                        </div>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                             <td>

@@ -12,7 +12,7 @@ Validates:
 import os
 import unittest
 from app import app, db
-from models import User, Course, Report, AttendanceRecord
+from models import User, Course, Report, AttendanceRecord, Enrollment
 
 class PilotQATestCase(unittest.TestCase):
     def setUp(self):
@@ -21,6 +21,67 @@ class PilotQATestCase(unittest.TestCase):
         self.client = app.test_client()
         self.app_context = app.app_context()
         self.app_context.push()
+
+        # Ensure test student and CR exist for QA test suite
+        if not User.query.filter_by(email='priya.singh@gla.ac.in').first():
+            test_student = User(
+                name="Test Priya",
+                email="priya.singh@gla.ac.in",
+                role="student",
+                is_verified=True,
+                is_onboarded=True,
+                section="2FE",
+                college="GLA University, Mathura Campus",
+                department="CSE"
+            )
+            test_student.set_password("password123")
+            db.session.add(test_student)
+            db.session.commit()
+
+            enr = Enrollment(
+                user_id=test_student.id,
+                college="GLA University, Mathura Campus",
+                department="CSE",
+                program="B.Tech CSE",
+                academic_year="2026-27",
+                semester=3,
+                section="2FE",
+                status="approved",
+                is_active=True
+            )
+            db.session.add(enr)
+            db.session.commit()
+        else:
+            priya_user = User.query.filter_by(email='priya.singh@gla.ac.in').first()
+            if priya_user and not priya_user.active_enrollment:
+                enr = Enrollment(
+                    user_id=priya_user.id,
+                    college="GLA University, Mathura Campus",
+                    department="CSE",
+                    program="B.Tech CSE",
+                    academic_year="2026-27",
+                    semester=3,
+                    section="2FE",
+                    status="approved",
+                    is_active=True
+                )
+                db.session.add(enr)
+                db.session.commit()
+
+        if not User.query.filter_by(email='aarav.patel@gla.ac.in').first():
+            test_cr = User(
+                name="Test Aarav CR",
+                email="aarav.patel@gla.ac.in",
+                role="cr",
+                is_verified=True,
+                is_onboarded=True,
+                section="2FE",
+                college="GLA University, Mathura Campus",
+                department="CSE"
+            )
+            test_cr.set_password("password123")
+            db.session.add(test_cr)
+            db.session.commit()
 
     def tearDown(self):
         self.app_context.pop()

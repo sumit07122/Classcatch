@@ -1,19 +1,351 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% if is_guest or not current_user.is_authenticated %}
+<!-- ========================================================= -->
+<!-- PUBLIC GUEST LANDING PAGE (GLA UNIVERSITY SECTION 2FE) -->
+<!-- ========================================================= -->
+
+<!-- Hero Section -->
+<div class="hero-landing-wrapper py-5 mb-5 rounded-4 bg-white border shadow-sm px-3 px-md-5 position-relative overflow-hidden">
+    <div class="row align-items-center g-5">
+        <div class="col-lg-7">
+            <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-primary-subtle text-primary small fw-bold mb-3 border border-primary-subtle shadow-xs">
+                <i class="bi bi-patch-check-fill text-primary"></i> GLA University · CSE Semester 3 Pilot Live
+            </div>
+            
+            <h1 class="display-5 fw-extrabold text-dark tracking-tight mb-3 lh-sm">
+                Never Miss What Happened in Class Again.
+            </h1>
+            
+            <p class="lead text-muted fs-6 mb-4" style="max-width: 580px; line-height: 1.6;">
+                The unofficial peer-powered academic lifeline for <strong>GLA University</strong> students. 
+                Catch up on missed lectures in 60 seconds, check real-time classroom room numbers, calculate 75% attendance safe bunks, and access senior PYQs—curated strictly for <strong>Section 2FE</strong>.
+            </p>
+
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+                <a href="{{ url_for('login') }}" class="btn btn-primary-gradient px-4 py-3 rounded-pill fw-bold shadow-sm fs-6">
+                    <i class="bi bi-box-arrow-in-right me-2"></i> Sign In with GLA Email
+                </a>
+                <a href="{{ url_for('register') }}" class="btn btn-outline-primary px-4 py-3 rounded-pill fw-bold fs-6">
+                    <i class="bi bi-mortarboard me-2"></i> Join Section 2FE
+                </a>
+                <button type="button" class="btn btn-light border px-3 py-3 rounded-pill text-muted small" data-bs-toggle="modal" data-bs-target="#reportBugModal">
+                    <i class="bi bi-bug me-1 text-danger"></i> Report an Issue
+                </button>
+            </div>
+
+            <!-- Trust / Pilot Badges -->
+            <div class="d-flex flex-wrap align-items-center gap-3 pt-3 border-top text-secondary small">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <span><strong>{{ courses_count }}</strong> Enrolled CSE Courses</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-calendar3 text-primary"></i>
+                    <span><strong>{{ slots_count }}</strong> Mon–Fri Timetable Slots</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-geo-alt-fill text-danger"></i>
+                    <span><strong>AB-VI Room 306</strong> Live Navigator</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hero Preview Mockup Card -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden bg-dark text-white p-4 position-relative">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary px-3 py-1 text-uppercase fw-bold">Section 2FE</span>
+                        <span class="badge bg-secondary px-2 py-1 small">Sem 3 · B.Tech CSE</span>
+                    </div>
+                    <span class="badge bg-success-subtle text-success fw-bold">
+                        <i class="bi bi-broadcast me-1"></i> Live Timetable
+                    </span>
+                </div>
+
+                <div class="text-white-50 small mb-3">
+                    <i class="bi bi-building me-1"></i> Academic Block AB-VI &middot; Department of CSE
+                </div>
+
+                <!-- Sample Slots Preview -->
+                <div class="d-flex flex-column gap-2 mb-3">
+                    {% for slot in preview_slots[:3] %}
+                    <div class="p-2 rounded-3 bg-secondary bg-opacity-25 border border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-white small">{{ slot.course.code }} &middot; {{ slot.course.name }}</div>
+                            <div class="text-white-50" style="font-size: 0.72rem;">
+                                <i class="bi bi-clock me-1 text-primary"></i> {{ slot.time_range }} &middot; 
+                                <i class="bi bi-geo-alt me-1 text-danger"></i> {{ slot.room }} &middot; {{ slot.faculty or slot.course.instructor }}
+                            </div>
+                        </div>
+                        <span class="badge {% if slot.slot_type == 'Lab' %}bg-warning text-dark{% else %}bg-primary{% endif %} rounded-pill" style="font-size: 0.65rem;">
+                            {{ slot.slot_type }}
+                        </span>
+                    </div>
+                    {% else %}
+                    <div class="p-3 rounded-3 bg-secondary bg-opacity-25 text-center text-white-50 small">
+                        Complete Monday–Friday timetable loaded.
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="p-3 rounded-3 bg-primary bg-opacity-20 border border-primary border-opacity-25 d-flex align-items-center justify-content-between mt-1">
+                    <div>
+                        <div class="fw-bold text-white small"><i class="bi bi-shield-check text-success me-1"></i> 75% Attendance Safeguard</div>
+                        <div class="text-white-50" style="font-size: 0.72rem;">Automatic safe bunk & debarment math calculation.</div>
+                    </div>
+                    <a href="{{ url_for('login') }}" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold">
+                        Unlock &rarr;
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 5 Key Pillars Section (#features) -->
+<div id="features" class="mb-5">
+    <div class="text-center mb-5">
+        <div class="d-inline-flex align-items-center gap-1 px-3 py-1 rounded-pill bg-light text-primary small fw-bold mb-2 border">
+            <i class="bi bi-lightning-charge-fill text-warning"></i> BUILT FOR GLA STUDENTS
+        </div>
+        <h2 class="fw-extrabold text-dark mb-2">Everything You Need To Stay Ahead Every Period</h2>
+        <p class="text-muted small mx-auto" style="max-width: 600px;">
+            Engineered around real university pain points: missed lectures, strict 75% attendance criteria, last-minute room changes, and exam prep.
+        </p>
+    </div>
+
+    <div class="row g-4">
+        <!-- 1. Absence Engine -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card card-modern h-100 p-4 bg-white border-0 shadow-sm border-top border-4 border-warning">
+                <div class="rounded-3 bg-warning-subtle text-warning p-3 d-inline-flex align-items-center justify-content-center mb-3" style="width: 52px; height: 52px;">
+                    <i class="bi bi-calendar-check fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">"What Did I Miss?" Catch-Up Engine</h5>
+                <p class="text-muted small mb-0">
+                    Missed a lecture due to a fever or placement drive? Get a 60-second summary of topics covered, homework assigned, and professor hints before your next class.
+                </p>
+            </div>
+        </div>
+
+        <!-- 2. Timetable Navigator -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card card-modern h-100 p-4 bg-white border-0 shadow-sm border-top border-4 border-primary">
+                <div class="rounded-3 bg-primary-subtle text-primary p-3 d-inline-flex align-items-center justify-content-center mb-3" style="width: 52px; height: 52px;">
+                    <i class="bi bi-compass fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">Classroom & Room Navigator</h5>
+                <p class="text-muted small mb-0">
+                    Never run to the wrong block again. Full Monday–Friday schedule with exact room numbers across <strong>AB-VI Room 306</strong>, <strong>AB-V Room 218C</strong>, and <strong>AB-I Room 425</strong>.
+                </p>
+            </div>
+        </div>
+
+        <!-- 3. Safe Bunk Predictor -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card card-modern h-100 p-4 bg-white border-0 shadow-sm border-top border-4 border-danger">
+                <div class="rounded-3 bg-danger-subtle text-danger p-3 d-inline-flex align-items-center justify-content-center mb-3" style="width: 52px; height: 52px;">
+                    <i class="bi bi-calculator fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">75% Attendance & Safe Bunk Math</h5>
+                <p class="text-muted small mb-0">
+                    GLA University enforces a mandatory 75% attendance policy. Our mathematical engine calculates exactly how many classes you can safely skip or how many you must attend to escape debarment.
+                </p>
+            </div>
+        </div>
+
+        <!-- 4. Academic Vault -->
+        <div class="col-md-6 col-lg-6">
+            <div class="card card-modern h-100 p-4 bg-white border-0 shadow-sm border-top border-4 border-info">
+                <div class="rounded-3 bg-info-subtle text-info p-3 d-inline-flex align-items-center justify-content-center mb-3" style="width: 52px; height: 52px;">
+                    <i class="bi bi-folder2-open fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">Academic Vault & Previous Year Questions</h5>
+                <p class="text-muted small mb-0">
+                    Instant access to student-curated solved mid-term and end-term questions, lab code repositories, handwritten cheat sheets, and formula digests.
+                </p>
+            </div>
+        </div>
+
+        <!-- 5. Peer Lounge -->
+        <div class="col-md-6 col-lg-6">
+            <div class="card card-modern h-100 p-4 bg-white border-0 shadow-sm border-top border-4 border-success">
+                <div class="rounded-3 bg-success-subtle text-success p-3 d-inline-flex align-items-center justify-content-center mb-3" style="width: 52px; height: 52px;">
+                    <i class="bi bi-chat-heart fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">Doubt Lounge & Anonymous Clearing</h5>
+                <p class="text-muted small mb-0">
+                    Hesitant to ask doubts in a 70-student lecture hall? Turn on Anonymous Mode to ask your batchmates and CR questions without fear or judgment.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section 2FE Timetable Spotlight (#timetable-preview) -->
+<div id="timetable-preview" class="card card-modern p-4 p-md-5 mb-5 bg-white border-0 shadow-sm">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <div class="d-inline-flex align-items-center gap-1 px-3 py-1 rounded-pill bg-primary-subtle text-primary small fw-bold mb-1">
+                <i class="bi bi-calendar-range"></i> OFFICIAL SCHEDULE
+            </div>
+            <h3 class="fw-extrabold text-dark mb-1">Section 2FE Weekly Schedule Matrix</h3>
+            <p class="text-muted small mb-0">GLA University Department of Computer Science &amp; Engineering &middot; 3rd Semester</p>
+        </div>
+        <a href="{{ url_for('login') }}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-xs">
+            Sign In to View Full Matrix &rarr;
+        </a>
+    </div>
+
+    <div class="row g-3">
+        {% for slot in preview_slots %}
+        <div class="col-md-6 col-lg-4">
+            <div class="p-3 rounded-3 bg-light border h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge {% if slot.slot_type == 'Lab' %}bg-warning text-dark{% else %}bg-primary-subtle text-primary{% endif %} fw-bold px-2 py-1">
+                            {{ slot.slot_type }}
+                        </span>
+                        <span class="font-monospace small text-primary fw-bold">
+                            <i class="bi bi-clock me-1"></i> {{ slot.time_range }}
+                        </span>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1">{{ slot.course.name }}</h6>
+                    <div class="text-muted small font-monospace mb-2">{{ slot.course.code }}</div>
+                </div>
+                <div class="pt-2 border-top d-flex justify-content-between align-items-center small text-secondary">
+                    <span><i class="bi bi-geo-alt text-danger me-1"></i> {{ slot.room }}</span>
+                    <span><i class="bi bi-person me-1"></i> {{ slot.faculty or slot.course.instructor }}</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Section Expansion Roadmap (#section-pilot) -->
+<div id="section-pilot" class="card card-modern p-4 p-md-5 mb-5 bg-dark text-white border-0 shadow-sm">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+            <span class="badge bg-warning text-dark px-3 py-1 fw-bold text-uppercase mb-2">Campus Rollout Phase</span>
+            <h3 class="fw-bold text-white mb-2">Starting with Section 2FE &middot; More Sections Expanding Soon</h3>
+            <p class="text-white-50 small mb-3">
+                ClassCatch is operating on a phased rollout across GLA University. Section 2FE (Lateral &amp; Regular B.Tech CSE) is the flagship launch batch with 10 mapped courses, full weekly timetable slots, and student CR verification.
+            </p>
+            <div class="d-flex flex-wrap gap-2 small">
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                    <i class="bi bi-check-circle-fill me-1"></i> Section 2FE (Active &amp; Live)
+                </span>
+                <span class="badge bg-secondary bg-opacity-50 border border-secondary px-3 py-2 rounded-pill">
+                    <i class="bi bi-hourglass-split me-1"></i> Section 2FD (Staged)
+                </span>
+                <span class="badge bg-secondary bg-opacity-50 border border-secondary px-3 py-2 rounded-pill">
+                    <i class="bi bi-hourglass-split me-1"></i> Section 2FC (Staged)
+                </span>
+            </div>
+        </div>
+        <div class="col-lg-5 text-lg-end">
+            <a href="{{ url_for('login') }}" class="btn btn-warning py-3 px-4 rounded-pill fw-bold text-dark shadow-sm">
+                <i class="bi bi-door-open-fill me-2"></i> Enter Section 2FE Hub
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- GLA Student FAQ (#faq) -->
+<div id="faq" class="mb-5">
+    <div class="text-center mb-4">
+        <h3 class="fw-extrabold text-dark mb-1">Frequently Asked Questions</h3>
+        <p class="text-muted small">Everything you need to know about joining ClassCatch at GLA University</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="accordion accordion-flush card card-modern p-3 border-0 shadow-sm bg-white rounded-4" id="faqAccordion">
+                <div class="accordion-item border-bottom">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button fw-bold text-dark collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                            Do I need an official GLA institutional email to register?
+                        </button>
+                    </h2>
+                    <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-muted small">
+                            Yes. To maintain strict academic integrity, eliminate spam, and keep discussions authentic to your batch, registrations require an official <code>@gla.ac.in</code> email.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-bottom">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button fw-bold text-dark collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                            How are Section 2FE lecture notes kept accurate?
+                        </button>
+                    </h2>
+                    <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-muted small">
+                            All lecture summaries undergo verification by Class Representatives (CRs) or approved contributors before appearing in the verified catch-up digest. Helpful votes from batchmates reward contributors with Karma badges.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button fw-bold text-dark collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                            What if my timetable or room number changes?
+                        </button>
+                    </h2>
+                    <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-muted small">
+                            ClassCatch includes a 1-click <strong>Report an Issue</strong> system on every page. Reports are analyzed by our auto-healing engine or immediately escalated to the departmental administration for prompt timetable updates.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CTA Banner -->
+<div class="p-5 rounded-4 bg-primary text-white text-center shadow-sm mb-5 position-relative overflow-hidden">
+    <h2 class="fw-extrabold mb-2">Ready to stay ahead in Section 2FE?</h2>
+    <p class="text-white-50 mb-4 mx-auto" style="max-width: 500px;">
+        Sign in with your GLA account now to access your daily schedule, catch-up summaries, and attendance calculator.
+    </p>
+    <div class="d-flex justify-content-center gap-3 flex-wrap">
+        <a href="{{ url_for('login') }}" class="btn btn-light rounded-pill px-4 py-2 fw-bold text-primary shadow-xs">
+            Sign In with GLA Email
+        </a>
+        <button type="button" class="btn btn-outline-light rounded-pill px-4 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#reportBugModal">
+            <i class="bi bi-bug me-1"></i> Report a Bug / Issue
+        </button>
+    </div>
+</div>
+
+{% else %}
+<!-- ========================================================= -->
+<!-- AUTHENTICATED STUDENT DASHBOARD (SECTION COMMAND CENTER) -->
+<!-- ========================================================= -->
+
 <!-- Top Header & Action Row -->
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3 pt-2">
     <div>
         <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-primary-subtle text-primary small fw-bold mb-1">
-            <i class="bi bi-calendar-event"></i> {{ today.strftime('%A, %B %d') }} &middot; Active Semester
+            <i class="bi bi-calendar-event"></i> {{ today_day_name }} &middot; Active Semester
         </div>
-        <h2 class="fw-extrabold text-dark mb-0">
-            {% if current_user.is_authenticated %}
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <h2 class="fw-extrabold text-dark mb-0">
                 Welcome back, {{ current_user.name.split()[0] }}! 👋
-            {% else %}
-                Never Miss What Happened in Class.
-            {% endif %}
-        </h2>
+            </h2>
+            <div class="badge bg-primary text-white px-3 py-1 rounded-pill fw-bold" style="font-size: 0.82rem;">
+                <i class="fa-solid fa-people-roof me-1"></i> Section {{ active_sec }}
+            </div>
+            <a href="{{ url_for('select_section') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0" style="font-size: 0.75rem;" title="Switch to another section">
+                Switch Section
+            </a>
+        </div>
     </div>
 
     <!-- Quick Action Launchpad -->
@@ -21,22 +353,16 @@
         <a href="{{ url_for('catchup_hub', preset='yesterday') }}" class="btn btn-warning rounded-pill px-3 py-2 fw-bold text-dark shadow-xs" title="Review everything that happened in missed lectures">
             <i class="bi bi-calendar-check me-1"></i> What Did I Miss?
         </a>
-        {% if current_user.is_authenticated %}
-            <a href="{{ url_for('post_summary') }}" class="btn btn-primary rounded-pill px-3 py-2 fw-bold shadow-xs">
-                <i class="bi bi-plus-circle me-1"></i> Post Note (+15 Karma)
-            </a>
-        {% else %}
-            <a href="{{ url_for('login') }}" class="btn btn-outline-primary rounded-pill px-3 py-2 fw-semibold">
-                Sign In
-            </a>
-            <a href="{{ url_for('register') }}" class="btn btn-primary rounded-pill px-3 py-2 fw-bold shadow-xs">
-                Get Started
-            </a>
-        {% endif %}
+        <a href="{{ url_for('post_summary') }}" class="btn btn-primary rounded-pill px-3 py-2 fw-bold shadow-xs">
+            <i class="bi bi-plus-circle me-1"></i> Post Note (+15 Karma)
+        </a>
+        <button type="button" class="btn btn-outline-danger rounded-pill px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#reportBugModal" title="Report any issue or inaccuracy">
+            <i class="bi bi-bug me-1"></i> Report Issue
+        </button>
     </div>
 </div>
 
-<!-- Absence Catch-Up Hero Callout (The Core Promise) -->
+<!-- Absence Catch-Up Hero Callout -->
 <div class="card card-modern p-3 mb-4 bg-white border-0 shadow-sm border-start border-4 border-warning">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div class="d-flex align-items-center gap-3">
@@ -45,7 +371,7 @@
             </div>
             <div>
                 <h6 class="fw-bold text-dark mb-0">Were you absent yesterday or earlier this week?</h6>
-                <p class="text-muted small mb-0">Catch up on all lecture topics, homework assigned, and professor exam hints in one aggregated digest.</p>
+                <p class="text-muted small mb-0">Catch up on all Section {{ active_sec }} lecture topics, homework assigned, and professor exam hints in one aggregated digest.</p>
             </div>
         </div>
         <div class="d-flex gap-2">
@@ -60,7 +386,7 @@
 </div>
 
 <!-- Attendance Risk Banner (If Logged-in & Any Course < 75%) -->
-{% if current_user.is_authenticated and user_attendance %}
+{% if user_attendance %}
     {% set at_risk = [] %}
     {% for rec in user_attendance %}
         {% if rec.current_percentage < rec.target_percentage %}
@@ -91,57 +417,73 @@
 
 <!-- Today's Schedule & Academic Deadlines Row -->
 <div class="row g-4 mb-4">
-    <!-- Today's Class Schedule -->
+    <!-- Live Section Timetable with Day Pills -->
     <div class="col-lg-7">
         <div class="card card-modern p-4 h-100 bg-white shadow-sm border-0">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
                     <div class="rounded-3 bg-primary-subtle text-primary p-2">
-                        <i class="bi bi-calendar3 fs-5"></i>
+                        <i class="bi bi-calendar-week fs-5"></i>
                     </div>
                     <div>
-                        <h5 class="fw-bold text-dark mb-0">Today's Lectures & Timetable</h5>
-                        <span class="text-muted small">{{ today_day_name }} &middot; Rooms & Status</span>
+                        <h5 class="fw-bold text-dark mb-0">Class Schedule &middot; Sec {{ active_sec }}</h5>
+                        <span class="text-muted small">{{ selected_day }}'s Timetable (AB-VI 306)</span>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 d-flex align-items-center gap-1 shadow-xs" onclick="fetchMorningDispatch()" title="View daily timetable briefing">
                         <i class="bi bi-whatsapp text-success"></i>
-                        <span class="small fw-semibold d-none d-sm-inline">Morning Briefing</span>
+                        <span class="small fw-semibold d-none d-sm-inline">WhatsApp Briefing</span>
                     </button>
-                    <span class="badge bg-success-subtle text-success fw-bold px-2 py-1">
-                        <i class="bi bi-broadcast me-1"></i> Live
-                    </span>
+                    <a href="{{ url_for('timetable_view') }}" class="btn btn-sm btn-light border rounded-pill px-2 py-1 small" title="Full Mon-Fri Matrix">
+                        Full Matrix &rarr;
+                    </a>
                 </div>
             </div>
 
+            <!-- Mon-Fri Quick Navigation Tabs -->
+            <div class="d-flex gap-1 mb-3 overflow-auto pb-1">
+                {% for d in days %}
+                <a href="{{ url_for('index', day=d) }}" class="btn btn-sm rounded-pill px-3 py-1 fw-bold {% if selected_day == d %}btn-primary{% else %}btn-light border text-muted{% endif %}" style="font-size: 0.78rem;">
+                    {{ d[:3] }}
+                    <span class="badge {% if selected_day == d %}bg-white text-primary{% else %}bg-secondary-subtle text-muted{% endif %} rounded-pill ms-1" style="font-size: 0.65rem;">
+                        {{ day_counts.get(d, 0) }}
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+
+            <!-- Scheduled Slots for Selected Day -->
             <div class="d-flex flex-column gap-2">
-                {% for tc in today_classes %}
-                    <div class="p-3 rounded-3 bg-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                {% for slot in slots %}
+                    <div class="p-3 rounded-3 bg-light border d-flex justify-content-between align-items-center flex-wrap gap-2 {% if slot.slot_type == 'Lab' %}border-start border-4 border-warning{% else %}border-start border-4 border-primary{% endif %}">
                         <div>
                             <div class="d-flex align-items-center gap-2">
-                                <strong class="text-dark">{{ tc.code }}</strong>
-                                <span class="text-muted small text-truncate" style="max-width: 220px;">{{ tc.name }}</span>
+                                <strong class="text-dark">{{ slot.course.code }}</strong>
+                                <span class="text-muted small text-truncate" style="max-width: 220px;">{{ slot.course.name }}</span>
+                                <span class="badge {% if slot.slot_type == 'Lab' %}bg-warning text-dark{% else %}bg-primary-subtle text-primary{% endif %} px-2 py-0" style="font-size: 0.68rem;">
+                                    {{ slot.slot_type }}
+                                </span>
                             </div>
                             <div class="small text-muted mt-1">
-                                <i class="bi bi-clock me-1 text-primary"></i> {{ tc.schedule }}
+                                <i class="bi bi-clock me-1 text-primary"></i> <span class="fw-semibold text-dark">{{ slot.time_range }}</span>
                                 &middot;
-                                <i class="bi bi-geo-alt me-1 text-danger"></i> <span class="fw-semibold text-dark">{{ tc.room }}</span>
+                                <i class="bi bi-geo-alt me-1 text-danger"></i> <span class="fw-semibold text-dark">{{ slot.building }} - {{ slot.room }}</span>
                                 &middot;
-                                <i class="bi bi-person me-1"></i> {{ tc.instructor }}
+                                <i class="bi bi-person me-1"></i> {{ slot.faculty or slot.course.instructor }}
                             </div>
                         </div>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="badge {% if tc.status == 'Scheduled' %}bg-success-subtle text-success{% else %}bg-danger-subtle text-danger{% endif %} fw-bold px-2 py-1">
-                                {{ tc.status }}
-                            </span>
-                            <a href="{{ url_for('course_detail', course_id=tc.id) }}" class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill" title="View Catch-up Notes">
+                            <a href="{{ url_for('course_detail', course_id=slot.course.id) }}" class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill" title="View Catch-up Notes">
                                 Notes &rarr;
                             </a>
                         </div>
                     </div>
                 {% else %}
-                    <div class="text-center py-4 text-muted small">No scheduled classes found on today's timetable.</div>
+                    <div class="text-center py-4 text-muted small">
+                        <i class="bi bi-mug-hot fs-3 text-muted d-block mb-1"></i>
+                        No classes scheduled for {{ selected_day }} in Section {{ active_sec }}.
+                    </div>
                 {% endfor %}
             </div>
         </div>
@@ -157,7 +499,7 @@
                     </div>
                     <div>
                         <h5 class="fw-bold text-dark mb-0">Upcoming Deadlines</h5>
-                        <span class="text-muted small">Exams, Submissions & Tests</span>
+                        <span class="text-muted small">Exams, Submissions &amp; Tests</span>
                     </div>
                 </div>
                 <a href="{{ url_for('deadlines_list') }}" class="btn btn-sm btn-outline-secondary rounded-pill py-1 px-3">
@@ -204,22 +546,20 @@
     </div>
 </div>
 
-<!-- Courses Directory -->
+<!-- Section 2FE Courses Directory -->
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h4 class="fw-bold mb-0">Your Courses & Subjects</h4>
+        <h4 class="fw-bold mb-0">Enrolled Courses &middot; Section {{ active_sec }}</h4>
         <p class="text-muted small mb-0">Select any subject to view daily catch-up summaries, timetable, and unofficial discussion.</p>
     </div>
-    {% if current_user.is_authenticated %}
-        <div class="d-flex gap-2">
-            <a href="{{ url_for('create_course') }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
-                <i class="bi bi-journal-plus me-1"></i> Add Subject
-            </a>
-            <a href="{{ url_for('post_summary') }}" class="btn btn-primary btn-sm rounded-pill px-3">
-                <i class="bi bi-plus-lg me-1"></i> New Summary
-            </a>
-        </div>
-    {% endif %}
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('select_section') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="fa-solid fa-people-roof me-1"></i> Section: {{ active_sec }}
+        </a>
+        <a href="{{ url_for('post_summary') }}" class="btn btn-primary btn-sm rounded-pill px-3">
+            <i class="bi bi-plus-lg me-1"></i> New Summary
+        </a>
+    </div>
 </div>
 
 <div class="row g-3 mb-5">
@@ -261,9 +601,9 @@
         </div>
     {% else %}
         <div class="col-12 text-center py-5">
-            <div class="text-muted mb-2">No subjects configured yet.</div>
-            <a href="{{ url_for('create_course') }}" class="btn btn-primary btn-sm rounded-pill px-4">
-                <i class="bi bi-journal-plus me-1"></i> Add Your First Subject
+            <div class="text-muted mb-2">No subjects configured for Section {{ active_sec }}.</div>
+            <a href="{{ url_for('select_section') }}" class="btn btn-primary btn-sm rounded-pill px-4">
+                <i class="fa-solid fa-people-roof me-1"></i> Select Section 2FE
             </a>
         </div>
     {% endfor %}
@@ -280,7 +620,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <p class="small text-muted mb-2">Personalized daily schedule briefing for your timetable and attendance:</p>
+                <p class="small text-muted mb-2">Personalized daily schedule briefing for Section {{ active_sec }}:</p>
                 <div class="p-3 bg-dark text-white rounded-3 font-monospace small" style="white-space: pre-wrap;" id="dispatchContentBox">
                     Loading your daily briefing...
                 </div>
@@ -291,18 +631,20 @@
                     <i class="bi bi-clipboard me-1"></i> Copy Text
                 </button>
                 <button type="button" class="btn btn-success btn-sm rounded-pill px-3 shadow-xs" onclick="shareDispatchOnWhatsApp()">
-                    <i class="bi bi-whatsapp me-1"></i> Send to WhatsApp
+                    <i class="bi bi-whatsapp me-1"></i> Send to WhatsApp Group
                 </button>
             </div>
         </div>
     </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
 async function fetchMorningDispatch() {
     const modalEl = document.getElementById('morningDispatchModal');
+    if (!modalEl) return;
     const modal = new bootstrap.Modal(modalEl);
     const box = document.getElementById('dispatchContentBox');
     box.textContent = "Connecting to ClassCatch dispatch engine...";
